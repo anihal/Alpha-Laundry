@@ -13,6 +13,7 @@ import {
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { useNavigate } from 'react-router-dom';
+import client from '../api/client';
 
 interface LoginFormValues {
   username: string;
@@ -37,32 +38,22 @@ const Login = () => {
     validationSchema: validationSchema,
     onSubmit: async (values) => {
       try {
-        const response = await fetch('http://localhost:3001/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            username: values.username,
-            password: values.password,
-            role: userType,
-          }),
+        const response = await client.post('/auth/login', {
+          username: values.username,
+          password: values.password,
+          role: userType,
         });
 
-        const data = await response.json();
+        const { token, user } = response.data;
 
-        if (!response.ok) {
-          throw new Error(data.message || 'Login failed');
-        }
-
-        // Store the token
-        localStorage.setItem('token', data.token);
+        // Store the token and user info
+        localStorage.setItem('token', token);
         localStorage.setItem('userType', userType);
 
         // Redirect based on user type
-        navigate(userType === 'student' ? '/dashboard' : '/admin');
+        navigate(userType === 'student' ? '/student/dashboard' : '/admin/dashboard');
       } catch (err: any) {
-        setError(err.message || 'An error occurred during login');
+        setError(err.response?.data?.message || err.message || 'An error occurred during login');
       }
     },
   });
