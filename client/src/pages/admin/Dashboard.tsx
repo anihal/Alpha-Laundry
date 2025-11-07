@@ -24,6 +24,7 @@ import {
   InputLabel,
   SelectChangeEvent,
 } from '@mui/material';
+import client from '../../api/client';
 
 interface LaundryRequest {
   id: number;
@@ -43,33 +44,12 @@ const AdminDashboard: React.FC = () => {
   const [newStatus, setNewStatus] = React.useState<string>('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-
     const fetchRequests = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/admin/dashboard', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('token');
-            navigate('/login');
-            return;
-          }
-          throw new Error('Failed to fetch requests');
-        }
-
-        const data = await response.json();
-        setRequests(data.requests);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        const response = await client.get('/admin/dashboard');
+        setRequests(response.data.data.pending_requests);
+      } catch (err: any) {
+        setError(err.response?.data?.message || err.message || 'An error occurred');
       } finally {
         setLoading(false);
       }
@@ -79,25 +59,11 @@ const AdminDashboard: React.FC = () => {
   }, [navigate]);
 
   const handleUpdateStatus = async (requestId: number, newStatus: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/requests/${requestId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
+      await client.patch(`/admin/update-status`, {
+        request_id: requestId,
+        status: newStatus,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update status');
-      }
 
       // Refresh the requests list
       const updatedRequests = requests.map(request =>
@@ -106,8 +72,8 @@ const AdminDashboard: React.FC = () => {
       setRequests(updatedRequests);
       setSelectedRequest(null);
       setNewStatus('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update status');
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to update status');
     }
   };
 

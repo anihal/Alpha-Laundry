@@ -112,4 +112,56 @@ export const registerAdmin = async (
   } catch (error) {
     next(error);
   }
+};
+
+export const verify = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // User info is already attached to req by the protect middleware
+    const user = (req as any).user;
+
+    if (!user) {
+      throw new AppError('User not authenticated', 401);
+    }
+
+    // Fetch updated user info from database
+    let userData;
+    if (user.role === 'student') {
+      const result = await pool.query(
+        'SELECT student_id, name FROM students WHERE student_id = $1',
+        [user.id]
+      );
+      if (result.rows.length === 0) {
+        throw new AppError('Student not found', 404);
+      }
+      userData = {
+        id: result.rows[0].student_id,
+        name: result.rows[0].name,
+        role: 'student'
+      };
+    } else {
+      const result = await pool.query(
+        'SELECT id, username FROM admins WHERE id = $1',
+        [user.id]
+      );
+      if (result.rows.length === 0) {
+        throw new AppError('Admin not found', 404);
+      }
+      userData = {
+        id: result.rows[0].id,
+        name: result.rows[0].username,
+        role: 'admin'
+      };
+    }
+
+    res.json({
+      status: 'success',
+      user: userData
+    });
+  } catch (error) {
+    next(error);
+  }
 }; 
