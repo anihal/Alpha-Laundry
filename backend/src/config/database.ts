@@ -10,7 +10,7 @@ const pool = new Pool({
 });
 
 // Test the connection
-pool.connect((err, client, release) => {
+pool.connect((err, _client, release) => {
   if (err) {
     console.error('Error connecting to the database:', err);
     return;
