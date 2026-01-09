@@ -1,6 +1,7 @@
 {
-  "name": "client",
-  "version": "0.1.0",
+  "name": "alpha-laundry-frontend",
+  "version": "1.0.0",
+  "description": "Frontend React application for Alpha Laundry Management System",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.11.3",

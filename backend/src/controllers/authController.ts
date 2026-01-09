@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { AppError } from '../middleware/errorHandler';
 import pool from '../config/database';
+import { config } from '../config/env';
 
 export const login = async (
   req: Request,
@@ -55,9 +56,9 @@ export const login = async (
         id: role === 'student' ? user.student_id : user.id,
         role
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      config.jwt.secret,
       {
-        expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+        expiresIn: config.jwt.expiresIn
       } as SignOptions
     );
 
