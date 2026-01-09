@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from './errorHandler';
 import pool from '../config/database';
+import { config } from '../config/env';
 
 interface JwtPayload {
   id: string;
@@ -36,7 +37,7 @@ export const protect = async (
     // Verify token
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'your-secret-key'
+      config.jwt.secret
     ) as JwtPayload;
 
     // Check if user exists

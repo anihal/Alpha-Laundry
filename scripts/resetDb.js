@@ -1,12 +1,23 @@
+require('dotenv').config({ path: require('path').join(__dirname, '../backend/.env') });
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
+// Validate required environment variables
+const requiredEnvVars = ['DB_USER', 'DB_HOST', 'DB_NAME', 'DB_PASSWORD'];
+const missing = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missing.length > 0) {
+  console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
+  console.error('Please ensure backend/.env file exists and contains all required values.');
+  process.exit(1);
+}
+
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'alpha_laundry',
-  password: process.env.DB_PASSWORD || 'postgres',
-  port: process.env.DB_PORT || 5432,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: parseInt(process.env.DB_PORT || '5432', 10),
 });
 
 async function resetDatabase() {

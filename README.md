@@ -180,75 +180,139 @@ Alpha Laundry is a full-stack web application that streamlines the laundry manag
 
 ## Getting Started
 
-1. Clone the repository:
+### Prerequisites
+- Node.js 16+ and npm
+- PostgreSQL 12+
+- Git
+
+### Quick Start
+
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/yourusername/alpha-laundry.git
    cd alpha-laundry
    ```
 
-2. Set up the database:
+2. **Set up the database:**
    ```bash
-   # Create database
+   # Create PostgreSQL database
    createdb alpha_laundry
-   
-   # Run migrations
-   cd server
-   npm run migrate
    ```
 
-3. Install dependencies:
+3. **Install dependencies:**
    ```bash
+   # Install root dependencies (for testing/scripts)
+   npm install
+
    # Install backend dependencies
-   cd server
+   cd backend
    npm install
-   
+   cd ..
+
    # Install frontend dependencies
-   cd ../client
+   cd frontend
    npm install
+   cd ..
    ```
 
-4. Configure environment variables:
+4. **Configure environment variables:**
    ```bash
-   # Backend
-   cp server/.env.example server/.env
-   # Edit server/.env with your configuration
-   
-   # Frontend
-   cp client/.env.example client/.env
-   # Edit client/.env with your configuration
+   # Backend - Copy and edit configuration
+   cp backend/.env.example backend/.env
+   # Edit backend/.env with your database credentials and JWT secret
+
+   # Frontend - Copy and edit configuration
+   cp frontend/.env.example frontend/.env.local
+   # Edit frontend/.env.local if needed (defaults should work for local dev)
    ```
 
-5. Start the development servers:
+5. **Initialize the database:**
    ```bash
-   # Start backend (from server directory)
+   # Option 1: Schema only (production)
+   npm run db:init
+
+   # Option 2: Schema + sample data (development - recommended)
+   npm run db:seed
+   ```
+
+6. **Start the development servers:**
+   ```bash
+   # Option 1: Start both servers concurrently (recommended)
    npm run dev
-   
-   # Start frontend (from client directory)
-   npm start
+
+   # Option 2: Start servers separately
+   # Terminal 1 - Backend
+   cd backend && npm run dev
+
+   # Terminal 2 - Frontend
+   cd frontend && npm start
    ```
+
+7. **Access the application:**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:3001
+   - Health check: http://localhost:3001/health
+
+### Default Test Credentials
+
+After running `npm run db:seed`:
+- **Admin**: username: `admin`, password: `admin123`
+- **Students**: IDs: `STU001`, `STU002`, `STU003`, `STU004`, `STUDENT001`
 
 ## Project Structure
 
 ```
 alpha-laundry/
-├── client/                 # Frontend React application
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── pages/        # Page components
-│   │   ├── services/     # API services
-│   │   └── utils/        # Utility functions
-│   └── public/           # Static files
-├── server/                # Backend Node.js application
-│   ├── src/
-│   │   ├── controllers/  # Route controllers
-│   │   ├── models/       # Database models
-│   │   ├── routes/       # API routes
-│   │   ├── middleware/   # Custom middleware
-│   │   └── utils/        # Utility functions
-│   └── tests/            # Backend tests
-├── database/             # Database migrations and seeds
-├── docs/                 # Documentation
-└── docker/              # Docker configuration files
+├── .env.template              # Environment variables template
+├── .gitignore
+├── README.md
+├── package.json               # Root workspace configuration
+│
+├── frontend/                  # Frontend React application
+│   ├── .env.example          # Frontend environment template
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── public/               # Static files
+│   │   └── index.html
+│   └── src/
+│       ├── api/              # API client and error handling
+│       ├── components/       # Reusable React components
+│       ├── contexts/         # React Context providers
+│       ├── pages/            # Page components (admin, student)
+│       ├── theme/            # MUI theme configuration
+│       └── index.tsx         # App entry point
+│
+├── backend/                   # Backend Node.js/Express application
+│   ├── .env.example          # Backend environment template
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── database/             # Database schema and seeds
+│   │   ├── schema.sql        # Database tables and indexes
+│   │   ├── seeds/
+│   │   │   └── dev-data.sql  # Development seed data
+│   │   └── README.md
+│   └── src/
+│       ├── server.ts         # Main entry point
+│       ├── config/           # Configuration (env, database)
+│       │   ├── env.ts        # Environment config loader
+│       │   └── database.ts   # PostgreSQL connection pool
+│       ├── controllers/      # Route controllers (auth, admin, student)
+│       ├── middleware/       # Custom middleware (auth, error handling)
+│       └── routes/           # API route definitions
+│
+├── scripts/                   # Utility scripts
+│   ├── init-db.js            # Database initialization
+│   └── resetDb.js            # Database reset utility
+│
+├── tests/                     # End-to-end tests
+│   ├── cypress.config.ts
+│   └── e2e/
+│       ├── e2e/              # Cypress test specs
+│       └── support/          # Cypress support files
+│
+└── docs/                      # Documentation
+    ├── api.yaml              # OpenAPI/Swagger specification
+    └── README.md
 ```
 
 ## Contributing
