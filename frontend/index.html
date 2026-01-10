@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha Laundry - Login</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#1e40af',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md fade-in">
+        <!-- Logo/Title -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">🧺 Alpha Laundry</h1>
+            <p class="text-gray-600">Campus Laundry Management System</p>
+        </div>
+
+        <!-- Login Card -->
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 text-center">Login</h2>
+
+            <!-- Error Message -->
+            <div id="error-message" class="hidden bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded">
+                <p class="font-medium">Login Failed</p>
+                <p id="error-text" class="text-sm"></p>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="space-y-6">
+                <!-- User Type Toggle -->
+                <div class="flex bg-gray-100 rounded-lg p-1">
+                    <button type="button" id="student-tab"
+                            class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all bg-white text-blue-600 shadow">
+                        Student
+                    </button>
+                    <button type="button" id="admin-tab"
+                            class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-800">
+                        Admin
+                    </button>
+                </div>
+
+                <input type="hidden" id="user-type" value="student">
+
+                <!-- Username Field -->
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                        <span id="username-label">Student ID</span>
+                    </label>
+                    <input type="text" id="username" name="username" required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                           placeholder="Enter your ID (e.g., STU001)">
+                </div>
+
+                <!-- Password Field -->
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        Password
+                    </label>
+                    <input type="password" id="password" name="password" required
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                           placeholder="Enter your password">
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="login-button"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
+                    Sign In
+                </button>
+            </form>
+
+            <!-- Help Text -->
+            <div class="mt-6 text-center text-sm text-gray-600">
+                <p id="help-text">
+                    Demo credentials: <strong>STU001</strong> / password
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 text-gray-600 text-sm">
+            <p>Alpha Laundry v2.0 &copy; 2024</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import auth from './js/auth.js';
+        import CONFIG from './js/config.js';
+
+        // DOM elements
+        const loginForm = document.getElementById('login-form');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const loginButton = document.getElementById('login-button');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const studentTab = document.getElementById('student-tab');
+        const adminTab = document.getElementById('admin-tab');
+        const userTypeInput = document.getElementById('user-type');
+        const usernameLabel = document.getElementById('username-label');
+        const helpText = document.getElementById('help-text');
+
+        // Check if already logged in
+        if (auth.isAuthenticated()) {
+            auth.redirectToDashboard();
+        }
+
+        // Tab switching
+        function switchTab(userType) {
+            userTypeInput.value = userType;
+
+            if (userType === 'student') {
+                studentTab.classList.add('bg-white', 'text-blue-600', 'shadow');
+                studentTab.classList.remove('text-gray-600');
+                adminTab.classList.remove('bg-white', 'text-blue-600', 'shadow');
+                adminTab.classList.add('text-gray-600');
+
+                usernameLabel.textContent = 'Student ID';
+                usernameInput.placeholder = 'Enter your ID (e.g., STU001)';
+                helpText.innerHTML = 'Demo credentials: <strong>STU001</strong> / password';
+            } else {
+                adminTab.classList.add('bg-white', 'text-blue-600', 'shadow');
+                adminTab.classList.remove('text-gray-600');
+                studentTab.classList.remove('bg-white', 'text-blue-600', 'shadow');
+                studentTab.classList.add('text-gray-600');
+
+                usernameLabel.textContent = 'Username';
+                usernameInput.placeholder = 'Enter admin username';
+                helpText.innerHTML = 'Demo credentials: <strong>admin</strong> / admin123';
+            }
+        }
+
+        studentTab.addEventListener('click', () => switchTab('student'));
+        adminTab.addEventListener('click', () => switchTab('admin'));
+
+        // Hide error message when user starts typing
+        usernameInput.addEventListener('input', () => {
+            errorMessage.classList.add('hidden');
+        });
+
+        passwordInput.addEventListener('input', () => {
+            errorMessage.classList.add('hidden');
+        });
+
+        // Handle login form submission
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            const userType = userTypeInput.value;
+
+            // Disable form during submission
+            loginButton.disabled = true;
+            loginButton.textContent = 'Signing in...';
+            errorMessage.classList.add('hidden');
+
+            try {
+                const result = await auth.login(username, password, userType);
+
+                if (result.success) {
+                    // Redirect to appropriate dashboard
+                    auth.redirectToDashboard();
+                } else {
+                    // Show error message
+                    errorText.textContent = result.error || 'Invalid credentials. Please try again.';
+                    errorMessage.classList.remove('hidden');
+
+                    // Reset form
+                    loginButton.disabled = false;
+                    loginButton.textContent = 'Sign In';
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                }
+            } catch (error) {
+                errorText.textContent = 'An unexpected error occurred. Please try again.';
+                errorMessage.classList.remove('hidden');
+
+                loginButton.disabled = false;
+                loginButton.textContent = 'Sign In';
+            }
+        });
+
+        // Focus username field on load
+        usernameInput.focus();
+    </script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Alpha Laundry</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold text-gray-800">🧺 Alpha Laundry</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="user-info" class="text-sm text-gray-600"></span>
+                    <button id="logout-button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Welcome Section -->
+        <div class="mb-8">
+            <h2 id="welcome-message" class="text-3xl font-bold text-gray-800 mb-2">Welcome!</h2>
+            <p class="text-gray-600">Manage your laundry requests and track your quota</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Remaining Quota Card -->
+            <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-medium text-gray-600">Clothes Remaining</h3>
+                    <span class="text-2xl">👕</span>
+                </div>
+                <p id="remaining-quota" class="text-4xl font-bold text-blue-600">--</p>
+                <p class="text-xs text-gray-500 mt-2">pieces available</p>
+            </div>
+
+            <!-- Current Status Card -->
+            <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-medium text-gray-600">Current Status</h3>
+                    <span class="text-2xl">📊</span>
+                </div>
+                <p id="current-status" class="text-lg font-semibold text-gray-800">--</p>
+                <p class="text-xs text-gray-500 mt-2">latest request</p>
+            </div>
+
+            <!-- Total Requests Card -->
+            <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-medium text-gray-600">Total Requests</h3>
+                    <span class="text-2xl">📦</span>
+                </div>
+                <p id="total-requests" class="text-4xl font-bold text-gray-800">--</p>
+                <p class="text-xs text-gray-500 mt-2">all time</p>
+            </div>
+
+            <!-- Pending Requests Card -->
+            <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-medium text-gray-600">Pending</h3>
+                    <span class="text-2xl">⏳</span>
+                </div>
+                <p id="pending-requests" class="text-4xl font-bold text-orange-600">--</p>
+                <p class="text-xs text-gray-500 mt-2">in progress</p>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8 fade-in">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Submit New Request</h3>
+
+            <form id="submit-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Number of Clothes -->
+                    <div>
+                        <label for="num-clothes" class="block text-sm font-medium text-gray-700 mb-2">
+                            Number of Clothes
+                        </label>
+                        <input type="number" id="num-clothes" name="num-clothes" min="1" max="50" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="e.g., 5">
+                    </div>
+
+                    <!-- Priority -->
+                    <div>
+                        <label for="priority" class="block text-sm font-medium text-gray-700 mb-2">
+                            Priority
+                        </label>
+                        <select id="priority" name="priority"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="low">Low</option>
+                            <option value="normal" selected>Normal</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="flex items-end">
+                        <button type="submit" id="submit-button"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+                            Submit Request
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Optional Notes -->
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+                        Notes (Optional)
+                    </label>
+                    <textarea id="notes" name="notes" rows="2"
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Any special instructions..."></textarea>
+                </div>
+
+                <!-- Success/Error Messages -->
+                <div id="submit-message" class="hidden"></div>
+            </form>
+        </div>
+
+        <!-- Recent Requests -->
+        <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-gray-800">Recent Requests</h3>
+                <button id="refresh-button"
+                        class="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                    🔄 Refresh
+                </button>
+            </div>
+
+            <!-- Requests Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4 text-sm font-medium text-gray-600">Date</th>
+                            <th class="text-left py-3 px-4 text-sm font-medium text-gray-600">Clothes</th>
+                            <th class="text-left py-3 px-4 text-sm font-medium text-gray-600">Priority</th>
+                            <th class="text-left py-3 px-4 text-sm font-medium text-gray-600">Status</th>
+                            <th class="text-left py-3 px-4 text-sm font-medium text-gray-600">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requests-table-body">
+                        <tr>
+                            <td colspan="5" class="text-center py-8 text-gray-500">
+                                <div class="pulse-slow">Loading...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import auth from './js/auth.js';
+        import api from './js/api.js';
+        import CONFIG from './js/config.js';
+
+        // Require authentication
+        await auth.requireAuth('student');
+
+        // DOM elements
+        const welcomeMessage = document.getElementById('welcome-message');
+        const userInfo = document.getElementById('user-info');
+        const remainingQuota = document.getElementById('remaining-quota');
+        const currentStatus = document.getElementById('current-status');
+        const totalRequests = document.getElementById('total-requests');
+        const pendingRequests = document.getElementById('pending-requests');
+        const submitForm = document.getElementById('submit-form');
+        const submitButton = document.getElementById('submit-button');
+        const submitMessage = document.getElementById('submit-message');
+        const requestsTableBody = document.getElementById('requests-table-body');
+        const logoutButton = document.getElementById('logout-button');
+        const refreshButton = document.getElementById('refresh-button');
+
+        // Load dashboard data
+        async function loadDashboard() {
+            try {
+                const data = await api.getStudentDashboard();
+
+                // Update user info
+                welcomeMessage.textContent = `Welcome, ${data.name}!`;
+                userInfo.textContent = data.student_id;
+
+                // Update stats
+                remainingQuota.textContent = data.remaining_quota;
+                totalRequests.textContent = data.total_requests || 0;
+                pendingRequests.textContent = data.pending_requests || 0;
+
+                // Update current status
+                if (data.recent_jobs && data.recent_jobs.length > 0) {
+                    const latestJob = data.recent_jobs[0];
+                    currentStatus.textContent = formatStatus(latestJob.status);
+                } else {
+                    currentStatus.textContent = 'No active requests';
+                }
+
+                // Load recent requests
+                loadRecentRequests(data.recent_jobs || []);
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                showMessage('Error loading dashboard data', 'error');
+            }
+        }
+
+        // Load recent requests
+        function loadRecentRequests(jobs) {
+            if (jobs.length === 0) {
+                requestsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-8 text-gray-500">No requests yet</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            requestsTableBody.innerHTML = jobs.map(job => `
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-800">${formatDate(job.submission_date)}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">${job.num_clothes}</td>
+                    <td class="py-3 px-4 text-sm">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(job.priority)}">
+                            ${job.priority}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-sm">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}">
+                            ${formatStatus(job.status)}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-600">${job.notes || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Handle form submission
+        submitForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const numClothes = parseInt(document.getElementById('num-clothes').value);
+            const priority = document.getElementById('priority').value;
+            const notes = document.getElementById('notes').value.trim();
+
+            // Disable button
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+
+            try {
+                await api.submitLaundryRequest(numClothes, priority, notes);
+
+                // Show success message
+                showMessage('Request submitted successfully! 🎉', 'success');
+
+                // Reset form
+                submitForm.reset();
+
+                // Reload dashboard
+                await loadDashboard();
+
+            } catch (error) {
+                showMessage(`Error: ${error.message}`, 'error');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit Request';
+            }
+        });
+
+        // Show message
+        function showMessage(message, type) {
+            const bgColor = type === 'success' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-red-500 text-red-700';
+            submitMessage.className = `border-l-4 p-4 rounded ${bgColor}`;
+            submitMessage.innerHTML = `<p class="text-sm">${message}</p>`;
+            submitMessage.classList.remove('hidden');
+
+            setTimeout(() => {
+                submitMessage.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Format status
+        function formatStatus(status) {
+            const statusMap = {
+                'submitted': 'Submitted',
+                'processing': 'Washing',
+                'completed': 'Ready for Pickup',
+                'cancelled': 'Cancelled'
+            };
+            return statusMap[status] || status;
+        }
+
+        // Get status color
+        function getStatusColor(status) {
+            const colors = {
+                'submitted': 'bg-blue-100 text-blue-800',
+                'processing': 'bg-yellow-100 text-yellow-800',
+                'completed': 'bg-green-100 text-green-800',
+                'cancelled': 'bg-red-100 text-red-800'
+            };
+            return colors[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        // Get priority color
+        function getPriorityColor(priority) {
+            const colors = {
+                'low': 'bg-gray-100 text-gray-800',
+                'normal': 'bg-blue-100 text-blue-800',
+                'high': 'bg-orange-100 text-orange-800',
+                'urgent': 'bg-red-100 text-red-800'
+            };
+            return colors[priority] || 'bg-gray-100 text-gray-800';
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Refresh button
+        refreshButton.addEventListener('click', loadDashboard);
+
+        // Logout
+        logoutButton.addEventListener('click', () => auth.logout());
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadDashboard, CONFIG.DASHBOARD_REFRESH_INTERVAL);
+
+        // Initial load
+        loadDashboard();
+    </script>
+</body>
+</html>

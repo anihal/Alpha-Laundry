@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Alpha Laundry</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold text-gray-800">🧺 Alpha Laundry - Admin</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="user-info" class="text-sm text-gray-600"></span>
+                    <button id="logout-button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Welcome Section -->
+        <div class="mb-8">
+            <h2 id="welcome-message" class="text-3xl font-bold text-gray-800 mb-2">Admin Dashboard</h2>
+            <p class="text-gray-600">Manage laundry requests and monitor operations</p>
+        </div>
+
+        <!-- Analytics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <!-- Total Jobs -->
+            <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium text-gray-600">Total Jobs</h3>
+                    <span class="text-2xl">📊</span>
+                </div>
+                <p id="total-jobs" class="text-3xl font-bold text-gray-800">--</p>
+            </div>
+
+            <!-- Submitted -->
+            <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium text-gray-600">Submitted</h3>
+                    <span class="text-2xl">📥</span>
+                </div>
+                <p id="submitted-jobs" class="text-3xl font-bold text-blue-600">--</p>
+            </div>
+
+            <!-- Processing -->
+            <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium text-gray-600">Processing</h3>
+                    <span class="text-2xl">🔄</span>
+                </div>
+                <p id="processing-jobs" class="text-3xl font-bold text-yellow-600">--</p>
+            </div>
+
+            <!-- Completed -->
+            <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium text-gray-600">Completed</h3>
+                    <span class="text-2xl">✅</span>
+                </div>
+                <p id="completed-jobs" class="text-3xl font-bold text-green-600">--</p>
+            </div>
+
+            <!-- Total Clothes -->
+            <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium text-gray-600">Total Clothes</h3>
+                    <span class="text-2xl">👕</span>
+                </div>
+                <p id="total-clothes" class="text-3xl font-bold text-indigo-600">--</p>
+            </div>
+        </div>
+
+        <!-- Filters and Actions -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8 fade-in">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <!-- Filter Tabs -->
+                <div class="flex flex-wrap gap-2">
+                    <button data-status="all" class="filter-button bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                        All Jobs
+                    </button>
+                    <button data-status="submitted" class="filter-button bg-gray-100 text-gray-700 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                        Submitted
+                    </button>
+                    <button data-status="processing" class="filter-button bg-gray-100 text-gray-700 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                        Processing
+                    </button>
+                    <button data-status="completed" class="filter-button bg-gray-100 text-gray-700 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                        Completed
+                    </button>
+                </div>
+
+                <!-- Refresh Button -->
+                <button id="refresh-button"
+                        class="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Jobs Table -->
+        <div class="bg-white rounded-xl shadow-md p-6 fade-in">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Active Jobs</h3>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b-2 border-gray-200">
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">ID</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Student</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Clothes</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Priority</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Submitted</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Notes</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-table-body">
+                        <tr>
+                            <td colspan="8" class="text-center py-8 text-gray-500">
+                                <div class="pulse-slow">Loading jobs...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Status Modal -->
+    <div id="status-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 fade-in">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Update Job Status</h3>
+
+            <div class="mb-4">
+                <p class="text-sm text-gray-600">Job ID: <span id="modal-job-id" class="font-semibold"></span></p>
+                <p class="text-sm text-gray-600">Student: <span id="modal-student-id" class="font-semibold"></span></p>
+                <p class="text-sm text-gray-600">Clothes: <span id="modal-num-clothes" class="font-semibold"></span></p>
+            </div>
+
+            <div class="mb-6">
+                <label for="new-status" class="block text-sm font-medium text-gray-700 mb-2">
+                    New Status
+                </label>
+                <select id="new-status"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="submitted">Submitted</option>
+                    <option value="processing">Processing</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="cancel-modal-button"
+                        class="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-all">
+                    Cancel
+                </button>
+                <button id="update-status-button"
+                        class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all">
+                    Update Status
+                </button>
+            </div>
+
+            <div id="modal-message" class="hidden mt-4"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import auth from './js/auth.js';
+        import api from './js/api.js';
+        import CONFIG from './js/config.js';
+
+        // Require authentication
+        await auth.requireAuth('admin');
+
+        // DOM elements
+        const userInfo = document.getElementById('user-info');
+        const totalJobs = document.getElementById('total-jobs');
+        const submittedJobs = document.getElementById('submitted-jobs');
+        const processingJobs = document.getElementById('processing-jobs');
+        const completedJobs = document.getElementById('completed-jobs');
+        const totalClothes = document.getElementById('total-clothes');
+        const jobsTableBody = document.getElementById('jobs-table-body');
+        const logoutButton = document.getElementById('logout-button');
+        const refreshButton = document.getElementById('refresh-button');
+        const filterButtons = document.querySelectorAll('.filter-button');
+        const statusModal = document.getElementById('status-modal');
+        const modalJobId = document.getElementById('modal-job-id');
+        const modalStudentId = document.getElementById('modal-student-id');
+        const modalNumClothes = document.getElementById('modal-num-clothes');
+        const newStatusSelect = document.getElementById('new-status');
+        const updateStatusButton = document.getElementById('update-status-button');
+        const cancelModalButton = document.getElementById('cancel-modal-button');
+        const modalMessage = document.getElementById('modal-message');
+
+        // State
+        let currentFilter = 'all';
+        let currentJobId = null;
+
+        // Set user info
+        userInfo.textContent = auth.getUsername();
+
+        // Load analytics
+        async function loadAnalytics() {
+            try {
+                const data = await api.getAdminAnalytics(30);
+
+                totalJobs.textContent = data.total_jobs || 0;
+                submittedJobs.textContent = data.submitted || 0;
+                processingJobs.textContent = data.processing || 0;
+                completedJobs.textContent = data.completed || 0;
+                totalClothes.textContent = data.total_clothes_processed || 0;
+
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+
+        // Load jobs
+        async function loadJobs(status = null) {
+            try {
+                const statusParam = status === 'all' ? null : status;
+                const data = await api.getAdminJobs(statusParam, 1, 100);
+
+                if (!data.jobs || data.jobs.length === 0) {
+                    jobsTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="text-center py-8 text-gray-500">No jobs found</td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                jobsTableBody.innerHTML = data.jobs.map(job => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="py-3 px-4 text-sm font-medium text-gray-800">#${job.id}</td>
+                        <td class="py-3 px-4 text-sm text-gray-800">${job.student_id}</td>
+                        <td class="py-3 px-4 text-sm text-gray-800">${job.num_clothes}</td>
+                        <td class="py-3 px-4 text-sm">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(job.priority)}">
+                                ${job.priority}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-sm">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}">
+                                ${formatStatus(job.status)}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-sm text-gray-600">${formatDate(job.submission_date)}</td>
+                        <td class="py-3 px-4 text-sm text-gray-600 max-w-xs truncate">${job.notes || '-'}</td>
+                        <td class="py-3 px-4 text-sm">
+                            <button onclick="window.openStatusModal(${job.id}, '${job.student_id}', ${job.num_clothes}, '${job.status}')"
+                                    class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-all">
+                                Update
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error loading jobs:', error);
+                jobsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-8 text-red-500">Error loading jobs</td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Open status modal
+        window.openStatusModal = function(jobId, studentId, numClothes, currentStatus) {
+            currentJobId = jobId;
+            modalJobId.textContent = `#${jobId}`;
+            modalStudentId.textContent = studentId;
+            modalNumClothes.textContent = numClothes;
+            newStatusSelect.value = currentStatus;
+            modalMessage.classList.add('hidden');
+            statusModal.classList.remove('hidden');
+        };
+
+        // Close status modal
+        function closeStatusModal() {
+            statusModal.classList.add('hidden');
+            currentJobId = null;
+        }
+
+        // Update status
+        updateStatusButton.addEventListener('click', async () => {
+            const newStatus = newStatusSelect.value;
+
+            updateStatusButton.disabled = true;
+            updateStatusButton.textContent = 'Updating...';
+
+            try {
+                await api.updateJobStatus(currentJobId, newStatus);
+
+                showModalMessage('Status updated successfully! 🎉', 'success');
+
+                // Reload data
+                await loadAnalytics();
+                await loadJobs(currentFilter);
+
+                // Close modal after short delay
+                setTimeout(() => {
+                    closeStatusModal();
+                    updateStatusButton.disabled = false;
+                    updateStatusButton.textContent = 'Update Status';
+                }, 1500);
+
+            } catch (error) {
+                showModalMessage(`Error: ${error.message}`, 'error');
+                updateStatusButton.disabled = false;
+                updateStatusButton.textContent = 'Update Status';
+            }
+        });
+
+        // Cancel modal
+        cancelModalButton.addEventListener('click', closeStatusModal);
+
+        // Close modal on outside click
+        statusModal.addEventListener('click', (e) => {
+            if (e.target === statusModal) {
+                closeStatusModal();
+            }
+        });
+
+        // Show modal message
+        function showModalMessage(message, type) {
+            const bgColor = type === 'success' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-red-500 text-red-700';
+            modalMessage.className = `border-l-4 p-4 rounded ${bgColor}`;
+            modalMessage.innerHTML = `<p class="text-sm">${message}</p>`;
+            modalMessage.classList.remove('hidden');
+        }
+
+        // Filter buttons
+        filterButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Update active button
+                filterButtons.forEach(btn => {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+                });
+                button.classList.remove('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+                button.classList.add('bg-blue-600', 'text-white');
+
+                // Load jobs with filter
+                currentFilter = button.dataset.status;
+                loadJobs(currentFilter);
+            });
+        });
+
+        // Format status
+        function formatStatus(status) {
+            const statusMap = {
+                'submitted': 'Submitted',
+                'processing': 'Processing',
+                'completed': 'Completed',
+                'cancelled': 'Cancelled'
+            };
+            return statusMap[status] || status;
+        }
+
+        // Get status color
+        function getStatusColor(status) {
+            const colors = {
+                'submitted': 'bg-blue-100 text-blue-800',
+                'processing': 'bg-yellow-100 text-yellow-800',
+                'completed': 'bg-green-100 text-green-800',
+                'cancelled': 'bg-red-100 text-red-800'
+            };
+            return colors[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        // Get priority color
+        function getPriorityColor(priority) {
+            const colors = {
+                'low': 'bg-gray-100 text-gray-800',
+                'normal': 'bg-blue-100 text-blue-800',
+                'high': 'bg-orange-100 text-orange-800',
+                'urgent': 'bg-red-100 text-red-800'
+            };
+            return colors[priority] || 'bg-gray-100 text-gray-800';
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Refresh button
+        refreshButton.addEventListener('click', async () => {
+            await loadAnalytics();
+            await loadJobs(currentFilter);
+        });
+
+        // Logout
+        logoutButton.addEventListener('click', () => auth.logout());
+
+        // Auto-refresh every 30 seconds
+        setInterval(async () => {
+            await loadAnalytics();
+            await loadJobs(currentFilter);
+        }, CONFIG.DASHBOARD_REFRESH_INTERVAL);
+
+        // Initial load
+        await loadAnalytics();
+        await loadJobs(currentFilter);
+    </script>
+</body>
+</html>

@@ -1,46 +1,350 @@
-# Getting Started with Create React App
+# Alpha Laundry - Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A clean, modern web interface for the Alpha Laundry campus laundry management system.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+### 🧺 User Dashboard
+- View remaining clothes quota
+- See current laundry status (Washing, Ready for Pickup, etc.)
+- Submit new laundry requests with priority levels
+- View request history with real-time updates
+- Auto-refresh every 30 seconds
 
-### `npm start`
+### 👨‍💼 Admin Dashboard
+- View analytics and statistics
+- List all active jobs with filtering
+- Update job status (Submitted → Processing → Completed)
+- Real-time monitoring of operations
+- Mobile-responsive interface
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+### 🔐 Authentication
+- Minimalist login page
+- Secure JWT token-based authentication
+- Automatic token verification
+- Separate student and admin access
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Tech Stack
 
-### `npm test`
+- **Pure HTML5** - No heavy frameworks
+- **Tailwind CSS** - Modern, responsive styling via CDN
+- **Vanilla JavaScript** - ES6+ modules for clean code
+- **Fetch API** - Native browser API for backend communication
+- **LocalStorage** - Client-side token management
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Project Structure
 
-### `npm run build`
+```
+frontend/
+├── index.html                 # Login page (entry point)
+├── student-dashboard.html     # Student interface
+├── admin-dashboard.html       # Admin interface
+├── js/
+│   ├── config.js             # API configuration (externalized)
+│   ├── api.js                # API service module
+│   └── auth.js               # Authentication module
+└── README.md                  # This file
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Setup & Installation
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Prerequisites
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- A modern web browser (Chrome, Firefox, Safari, Edge)
+- Python backend running (see `/api` directory)
+- A local web server (Python's built-in server, Live Server, etc.)
 
-### `npm run eject`
+### Quick Start
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+1. **Start the Backend** (if not already running):
+   ```bash
+   cd api
+   python run.py run --reload
+   ```
+   Backend will be available at `http://localhost:8000`
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+2. **Start a Web Server** for the frontend:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+   **Option 1: Python HTTP Server**
+   ```bash
+   cd frontend
+   python -m http.server 3000
+   ```
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+   **Option 2: Node.js HTTP Server**
+   ```bash
+   cd frontend
+   npx http-server -p 3000
+   ```
 
-## Learn More
+   **Option 3: VS Code Live Server**
+   - Install the "Live Server" extension
+   - Right-click `index.html` → "Open with Live Server"
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+3. **Open in Browser**:
+   ```
+   http://localhost:3000/index.html
+   ```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Configuration
+
+### API URL Configuration
+
+The API URL is configured in `/js/config.js`:
+
+```javascript
+const CONFIG = {
+    API_BASE_URL: window.location.hostname === 'localhost'
+        ? 'http://localhost:8000/api'
+        : '/api',
+    // ... other settings
+};
+```
+
+**To change the API URL:**
+
+1. **Edit config.js directly**:
+   ```javascript
+   API_BASE_URL: 'http://your-server.com:8000/api'
+   ```
+
+2. **Or use localStorage override** (temporary, for testing):
+   ```javascript
+   // In browser console:
+   localStorage.setItem('api_override', 'http://your-server.com:8000/api')
+   ```
+
+### Auto-Refresh Interval
+
+Dashboards auto-refresh every 30 seconds. To change this, edit `config.js`:
+
+```javascript
+DASHBOARD_REFRESH_INTERVAL: 30000, // milliseconds (30 seconds)
+```
+
+## Usage
+
+### Login Credentials
+
+**Students:**
+- Username: `STU001`, `STU002`, `STU003`, `STU004`
+- Password: `password` (for demo accounts)
+
+**Admin:**
+- Username: `admin`
+- Password: `admin123`
+
+### Student Workflow
+
+1. **Login** with student ID (e.g., STU001)
+2. **View Dashboard**:
+   - Check remaining quota
+   - See current request status
+   - View request history
+3. **Submit Request**:
+   - Enter number of clothes (1-50)
+   - Select priority (Low, Normal, High, Urgent)
+   - Add optional notes
+   - Click "Submit Request"
+4. **Monitor Status**:
+   - Submitted → Processing → Ready for Pickup
+
+### Admin Workflow
+
+1. **Login** with admin credentials
+2. **View Analytics**:
+   - Total jobs, submitted, processing, completed
+   - Total clothes processed
+3. **Manage Jobs**:
+   - Filter by status (All, Submitted, Processing, Completed)
+   - Click "Update" on any job
+   - Change status in modal
+   - Confirm update
+4. **Monitor Operations**:
+   - Real-time dashboard updates
+   - Click refresh to manually update
+
+## API Integration
+
+### API Endpoints Used
+
+**Authentication:**
+- `POST /api/auth/login` - User login
+- `GET /api/auth/verify` - Token verification
+- `POST /api/auth/logout` - User logout
+
+**Student:**
+- `GET /api/student/dashboard?token=...` - Get dashboard data
+- `POST /api/student/submit?token=...` - Submit laundry request
+- `GET /api/student/history?token=...` - Get request history
+
+**Admin:**
+- `GET /api/admin/dashboard?token=...` - Get admin dashboard
+- `PATCH /api/admin/update-status?token=...` - Update job status
+- `GET /api/admin/analytics?token=...` - Get analytics
+- `GET /api/admin/jobs?token=...` - List all jobs
+
+### Authentication Flow
+
+1. User submits credentials to `/api/auth/login`
+2. Backend returns JWT token in response
+3. Frontend stores token in `localStorage`
+4. Token sent in all subsequent requests as query parameter: `?token=<token>`
+5. Backend verifies token and processes request
+
+### Error Handling
+
+The API service (`js/api.js`) handles:
+- Network errors
+- HTTP error responses (400, 401, 403, 404, 500)
+- Invalid tokens (redirects to login)
+- Validation errors
+
+## Mobile Responsiveness
+
+The interface is fully responsive and optimized for:
+- **Desktop** (1024px+) - Full layout with all features
+- **Tablet** (768px-1023px) - Adapted grid layouts
+- **Mobile** (320px-767px) - Stacked layouts, touch-friendly buttons
+
+### Mobile Features:
+- Responsive navigation
+- Touch-optimized buttons
+- Readable fonts on small screens
+- Horizontal scrolling for tables
+- Optimized form layouts
+
+## Browser Compatibility
+
+Tested and working on:
+- ✅ Chrome 90+
+- ✅ Firefox 88+
+- ✅ Safari 14+
+- ✅ Edge 90+
+
+**Requirements:**
+- ES6 modules support
+- Fetch API support
+- LocalStorage support
+- CSS Grid and Flexbox support
+
+## Security Features
+
+- JWT token-based authentication
+- Secure token storage in `localStorage`
+- Automatic token verification on protected routes
+- Session timeout handling
+- HTTPS recommended for production
+
+## Deployment
+
+### Production Deployment
+
+1. **Update API URL** in `config.js`:
+   ```javascript
+   API_BASE_URL: 'https://your-api-server.com/api'
+   ```
+
+2. **Deploy Files**:
+   - Upload all files to your web server
+   - Ensure server is configured to serve static files
+   - Configure CORS on backend to allow your domain
+
+3. **Recommended Hosting**:
+   - **Netlify** - Drag & drop deployment
+   - **Vercel** - Git-based deployment
+   - **GitHub Pages** - Free static hosting
+   - **AWS S3 + CloudFront** - Enterprise hosting
+
+### Environment-Specific Configuration
+
+For different environments (dev, staging, production), you can:
+
+1. Create separate config files:
+   ```
+   config.dev.js
+   config.staging.js
+   config.prod.js
+   ```
+
+2. Load appropriate config based on hostname:
+   ```javascript
+   const hostname = window.location.hostname;
+   const configFile = hostname.includes('staging')
+       ? './config.staging.js'
+       : hostname.includes('localhost')
+           ? './config.dev.js'
+           : './config.prod.js';
+   ```
+
+## Troubleshooting
+
+### "Network error" on login
+- ✅ Check backend is running (`http://localhost:8000`)
+- ✅ Verify API URL in `config.js`
+- ✅ Check browser console for CORS errors
+- ✅ Ensure backend CORS allows frontend origin
+
+### "Token invalid" errors
+- ✅ Clear localStorage: `localStorage.clear()`
+- ✅ Login again to get new token
+- ✅ Check token hasn't expired (24hr default)
+
+### Dashboard not loading
+- ✅ Check browser console for errors
+- ✅ Verify you're logged in with correct user type
+- ✅ Check network tab for failed API requests
+- ✅ Verify backend database has data (run seed script)
+
+### Styling issues
+- ✅ Check internet connection (Tailwind CSS loads from CDN)
+- ✅ Clear browser cache
+- ✅ Try different browser
+
+## Development
+
+### Code Style
+
+- ES6+ JavaScript modules
+- Async/await for API calls
+- Functional programming approach
+- Clean, readable code with comments
+
+### Best Practices
+
+- ✅ Externalized configuration
+- ✅ Modular code organization
+- ✅ Error handling and user feedback
+- ✅ Loading states and animations
+- ✅ Mobile-first responsive design
+- ✅ Accessibility considerations
+
+## Future Enhancements
+
+Potential features to add:
+- [ ] Dark mode toggle
+- [ ] Push notifications for status updates
+- [ ] Advanced filtering and search
+- [ ] Export reports (PDF, CSV)
+- [ ] User profile management
+- [ ] Multi-language support
+- [ ] Progressive Web App (PWA) features
+- [ ] Offline support with service workers
+
+## Support
+
+For issues or questions:
+1. Check the troubleshooting section above
+2. Review backend API documentation (`/api/README.md`)
+3. Check browser console for error messages
+4. Verify backend is running and accessible
+
+## License
+
+Part of the Alpha Laundry project.
+
+---
+
+**Version:** 2.0
+**Last Updated:** January 2024
+**Author:** Alpha Laundry Team
