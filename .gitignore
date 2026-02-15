@@ -64,6 +64,7 @@ desktop.ini
 *.sqlite3
 *.db
 *.db-journal
+instance/
 
 # TypeScript
 *.tsbuildinfo

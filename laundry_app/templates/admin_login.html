@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Login - Alpha Laundry{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Admin Portal</h1>
+            <p class="text-gray-500 mt-2">Sign in to manage laundry operations</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('auth.admin_login') }}" class="space-y-6">
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-1">
+                    Username
+                </label>
+                <input type="text" id="username" name="username" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                    placeholder="Enter admin username">
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
+                    Password
+                </label>
+                <input type="password" id="password" name="password" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                    placeholder="Enter your password">
+            </div>
+
+            <button type="submit"
+                class="w-full bg-gray-800 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all">
+                Admin Sign In
+            </button>
+        </form>
+
+        <div class="mt-6 text-center">
+            <p class="text-sm text-gray-500">
+                Student?
+                <a href="{{ url_for('auth.login') }}" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                    Student Login
+                </a>
+            </p>
+        </div>
+
+        <!-- Demo credentials -->
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+            <p class="text-xs text-gray-500 text-center mb-2">Demo Credentials</p>
+            <p class="text-xs text-gray-600 text-center">Username: <code class="bg-gray-200 px-1 rounded">admin</code></p>
+            <p class="text-xs text-gray-600 text-center">Password: <code class="bg-gray-200 px-1 rounded">admin123</code></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
