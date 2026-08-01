@@ -14,8 +14,9 @@ pristine state afterwards.
 import importlib
 import os
 
-import config as config_module
 import pytest
+
+import config as config_module
 
 ENV_KEYS = ("DATABASE_URL", "SECRET_KEY", "DEBUG")
 

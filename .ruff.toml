@@ -18,6 +18,14 @@ ignore = [
   "E501",  # line length is enforced by the formatter, not the linter
 ]
 
+[lint.isort]
+# The application modules use bare top-level imports (`from models import ...`)
+# that only resolve because `pytest.ini` puts `laundry_app` on `sys.path`. Without
+# this list isort guesses per-file -- it treats `services` as first-party inside
+# the package but `models` as third-party -- and the two end up in different
+# groups. Naming them explicitly keeps every import block grouped the same way.
+known-first-party = ["app", "config", "models", "routes", "services"]
+
 [lint.per-file-ignores]
 # The student and admin blueprints each define a route handler named
 # `dashboard` in this module. Renaming either changes its `url_for` endpoint
