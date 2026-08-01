@@ -51,9 +51,15 @@ Edit the `.env` file to customize your settings:
 
 ```env
 DATABASE_URL=sqlite:///laundry.db
-SECRET_KEY=your-super-secret-key-change-in-production
+SECRET_KEY=  # generate: python -c "import secrets; print(secrets.token_hex(32))"
 DEBUG=True
 ```
+
+`SECRET_KEY` signs the session cookies and has **no in-code default**. The app
+fails to start when it is missing, blank, or a known placeholder, so a
+forgeable session key can never ship. With `DEBUG=True` (local development
+only) a random ephemeral key is generated per process instead, so you can run
+without setting one; sessions simply reset on restart.
 
 ### 4. Run the Application
 
@@ -122,7 +128,8 @@ The application will:
 ## Production Deployment
 
 1. Set `DEBUG=False` in `.env`
-2. Generate a strong `SECRET_KEY`:
+2. Generate a strong `SECRET_KEY` (required -- with `DEBUG=False` the app will
+   refuse to start without one):
    ```python
    import secrets
    print(secrets.token_hex(32))

@@ -71,15 +71,23 @@ The app starts at `http://localhost:5001`. On first run, it creates the SQLite d
 
 ## Configuration
 
-Create a `.env` file inside `laundry_app/`:
+Create a `.env` file inside `laundry_app/` (see `.env.example`):
 
 ```env
 DATABASE_URL=sqlite:///laundry.db
-SECRET_KEY=your-secret-key
+SECRET_KEY=  # generate one: python -c "import secrets; print(secrets.token_hex(32))"
 DEBUG=True
 ```
 
-For production, set `DEBUG=False`, use a strong `SECRET_KEY`, and swap to PostgreSQL:
+`SECRET_KEY` signs the session cookies and has **no in-code default**: the app
+refuses to start when it is missing, blank, or a known placeholder, so it can
+never run with a guessable, forgeable key. The one exception is local
+development with `DEBUG=True`, where a random ephemeral key is generated per
+process (sessions reset when the server restarts).
+
+For production, set `DEBUG=False`, provide a strong `SECRET_KEY`, and swap to
+PostgreSQL. Because `DEBUG=False`, a missing `SECRET_KEY` will fail loudly at
+startup rather than run insecurely:
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost/laundry_db
