@@ -181,11 +181,16 @@ def dashboard():
 @login_required
 def submit_request():
     """Submit a new laundry request"""
-    num_clothes = quota_service.parse_quantity(request.form.get("num_clothes", 0))
-
     student = g.student
 
     try:
+        # Parsing lives inside the try because a value the browser will happily
+        # post -- "" for a blank number field -- is an InvalidQuantity, and it
+        # deserves the same flash as a zero or a negative rather than an
+        # unhandled exception. The ``min``/``max`` attributes on the input in
+        # dashboard.html are a convenience, not a control; every check that
+        # matters happens here.
+        num_clothes = quota_service.parse_quantity(request.form.get("num_clothes", 0))
         requests_service.submit(db.session, student, num_clothes)
     except quota_service.InvalidQuantity:
         flash("Please enter a valid number of clothes.", "error")
