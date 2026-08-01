@@ -10,13 +10,12 @@ still points at the original class, so these tests cannot disturb the rest of
 the suite. The ``reload_config`` fixture nonetheless restores the module to a
 pristine state afterwards.
 """
+
 import importlib
 import os
 
-import pytest
-
 import config as config_module
-
+import pytest
 
 ENV_KEYS = ("DATABASE_URL", "SECRET_KEY", "DEBUG")
 
@@ -28,13 +27,18 @@ def reload_config(monkeypatch):
     Usage: ``cfg = reload_config(DEBUG="true")``. Any key not passed is deleted
     from the environment first, so "absent" really means absent.
     """
+
     def _reload(**env):
         for key in ENV_KEYS:
             monkeypatch.delenv(key, raising=False)
         for key, value in env.items():
             monkeypatch.setenv(key, value)
-        # load_dotenv() runs again on reload but does not override already-set
-        # os.environ entries, so the monkeypatched values win.
+        # Reloading re-executes `from dotenv import load_dotenv`, so patch the
+        # attribute on the dotenv package itself rather than on config. Without
+        # this, a developer's real laundry_app/.env repopulates os.environ and
+        # "absent" stops meaning absent -- these tests would then pass in CI's
+        # clean checkout but fail on any machine that has a .env.
+        monkeypatch.setattr("dotenv.load_dotenv", lambda *args, **kwargs: False)
         return importlib.reload(config_module).Config
 
     yield _reload
@@ -49,6 +53,7 @@ def reload_config(monkeypatch):
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
+
 
 class TestDefaults:
     def test_database_url_default(self, reload_config):
@@ -76,6 +81,7 @@ class TestDefaults:
 # ---------------------------------------------------------------------------
 # Environment override
 # ---------------------------------------------------------------------------
+
 
 class TestEnvironmentOverride:
     def test_database_url_from_env(self, reload_config):
@@ -113,6 +119,7 @@ class TestEnvironmentOverride:
 # DEBUG string -> bool parsing
 # ---------------------------------------------------------------------------
 
+
 class TestDebugParsing:
     @pytest.mark.parametrize("raw", ["true", "True", "TRUE", "TrUe", "  true  ".strip()])
     def test_truthy_spellings(self, reload_config, raw):
@@ -146,6 +153,7 @@ class TestDebugParsing:
 # ---------------------------------------------------------------------------
 # Module shape
 # ---------------------------------------------------------------------------
+
 
 def test_config_exposes_the_expected_attributes():
     for attr in ("DATABASE_URL", "SECRET_KEY", "DEBUG"):

@@ -1,11 +1,12 @@
 """Tests for routes.py -- index, student login, admin login, logout and the
 login_required / admin_required decorators."""
-import pytest
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # Landing page
 # ---------------------------------------------------------------------------
+
 
 class TestIndex:
     def test_get_root_renders_the_login_page(self, client):
@@ -29,6 +30,7 @@ class TestIndex:
 # Student login
 # ---------------------------------------------------------------------------
 
+
 class TestStudentLogin:
     def test_get_renders_the_form(self, client):
         resp = client.get("/login")
@@ -36,9 +38,7 @@ class TestStudentLogin:
         assert 'action="/login"' in resp.get_data(as_text=True)
 
     def test_valid_credentials_redirect_to_the_dashboard(self, client, student_user):
-        resp = client.post(
-            "/login", data={"student_id": "STU001", "password": "password123"}
-        )
+        resp = client.post("/login", data={"student_id": "STU001", "password": "password123"})
         assert resp.status_code == 302
         assert resp.headers["Location"].endswith("/student/dashboard")
 
@@ -59,9 +59,7 @@ class TestStudentLogin:
         assert "Welcome back!" in resp.get_data(as_text=True)
 
     def test_wrong_password_rerenders_with_an_error(self, client, student_user):
-        resp = client.post(
-            "/login", data={"student_id": "STU001", "password": "nope"}
-        )
+        resp = client.post("/login", data={"student_id": "STU001", "password": "nope"})
         assert resp.status_code == 200
         assert "Invalid student ID or password." in resp.get_data(as_text=True)
 
@@ -72,9 +70,7 @@ class TestStudentLogin:
             assert "student_id" not in sess
 
     def test_unknown_student_id_rerenders_with_an_error(self, client, student_user):
-        resp = client.post(
-            "/login", data={"student_id": "NOPE999", "password": "password123"}
-        )
+        resp = client.post("/login", data={"student_id": "NOPE999", "password": "password123"})
         assert resp.status_code == 200
         assert "Invalid student ID or password." in resp.get_data(as_text=True)
 
@@ -127,17 +123,13 @@ class TestStudentLogin:
         # but it is undocumented and surprising -- a student who types their ID
         # in lower case is told their credentials are invalid. Correct
         # behaviour: normalise case (and strip whitespace) on both sides.
-        resp = client.post(
-            "/login", data={"student_id": "stu001", "password": "password123"}
-        )
+        resp = client.post("/login", data={"student_id": "stu001", "password": "password123"})
         assert resp.status_code == 200
         assert "Invalid student ID or password." in resp.get_data(as_text=True)
 
     def test_surrounding_whitespace_is_not_stripped(self, client, student_user):
         # BUG: routes.py:61 -- " STU001 " does not match "STU001".
-        resp = client.post(
-            "/login", data={"student_id": " STU001 ", "password": "password123"}
-        )
+        resp = client.post("/login", data={"student_id": " STU001 ", "password": "password123"})
         assert resp.status_code == 200
         assert "Invalid student ID or password." in resp.get_data(as_text=True)
 
@@ -167,6 +159,7 @@ class TestStudentLogin:
 # Admin login
 # ---------------------------------------------------------------------------
 
+
 class TestAdminLogin:
     def test_get_renders_the_form(self, client):
         resp = client.get("/admin/login")
@@ -176,9 +169,7 @@ class TestAdminLogin:
         assert 'name="username"' in body
 
     def test_valid_credentials_redirect_to_the_admin_dashboard(self, client, admin_user):
-        resp = client.post(
-            "/admin/login", data={"username": "admin", "password": "admin123"}
-        )
+        resp = client.post("/admin/login", data={"username": "admin", "password": "admin123"})
         assert resp.status_code == 302
         assert resp.headers["Location"].endswith("/admin/dashboard")
 
@@ -208,9 +199,7 @@ class TestAdminLogin:
             assert "admin_id" not in sess
 
     def test_unknown_username_rerenders_with_an_error(self, client, admin_user):
-        resp = client.post(
-            "/admin/login", data={"username": "ghost", "password": "admin123"}
-        )
+        resp = client.post("/admin/login", data={"username": "ghost", "password": "admin123"})
         assert resp.status_code == 200
         assert "Invalid username or password." in resp.get_data(as_text=True)
         with client.session_transaction() as sess:
@@ -242,9 +231,7 @@ class TestAdminLogin:
             client.post("/admin/login", data={"username": "admin"})
 
     def test_student_credentials_do_not_work_on_the_admin_login(self, client, student_user):
-        resp = client.post(
-            "/admin/login", data={"username": "STU001", "password": "password123"}
-        )
+        resp = client.post("/admin/login", data={"username": "STU001", "password": "password123"})
         assert resp.status_code == 200
         assert "Invalid username or password." in resp.get_data(as_text=True)
         with client.session_transaction() as sess:
@@ -259,6 +246,7 @@ class TestAdminLogin:
 # ---------------------------------------------------------------------------
 # Logout
 # ---------------------------------------------------------------------------
+
 
 class TestLogout:
     def test_clears_a_student_session(self, student_client):
@@ -367,6 +355,7 @@ class TestLoginRequired:
     def test_session_is_not_validated_against_the_database(self, app):
         """A session naming a student who no longer exists is still accepted."""
         import re
+
         client = app.test_client()
         with client.session_transaction() as sess:
             sess["user_id"] = 999
@@ -386,9 +375,7 @@ class TestLoginRequired:
         # user, and on a miss clear the session and redirect to auth.login.
         assert resp.status_code == 200
         assert "Your Dashboard" in body
-        quota_cell = re.search(
-            r'Remaining Quota</p>\s*<p class="[^"]*">([^<]*)</p>', body
-        )
+        quota_cell = re.search(r'Remaining Quota</p>\s*<p class="[^"]*">([^<]*)</p>', body)
         assert quota_cell is not None
         assert quota_cell.group(1).strip() == "", "expected a blank quota, not a real value"
         assert "Your quota is exhausted" not in body

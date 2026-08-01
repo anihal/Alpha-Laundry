@@ -1,18 +1,19 @@
 """Tests for app.py -- the create_app() factory and init_db() seeding."""
-import pytest
 
+import pytest
 from app import create_app, init_db
 from config import Config
-from models import db, Student, Admin, LaundryRequest
-
+from models import Admin, LaundryRequest, Student, db
 
 # ---------------------------------------------------------------------------
 # create_app()
 # ---------------------------------------------------------------------------
 
+
 class TestCreateApp:
     def test_returns_a_flask_app(self, app):
         from flask import Flask
+
         assert isinstance(app, Flask)
 
     def test_database_uri_comes_from_config(self, monkeypatch):
@@ -84,6 +85,7 @@ class TestCreateApp:
 # init_db()
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def fresh_app(monkeypatch):
     """An app with the schema NOT yet created, so init_db() does the work."""
@@ -104,9 +106,7 @@ class TestInitDb:
         init_db(fresh_app)
         with fresh_app.app_context():
             inspector = db.inspect(db.engine)
-            assert set(inspector.get_table_names()) == {
-                "students", "admins", "laundry_requests"
-            }
+            assert set(inspector.get_table_names()) == {"students", "admins", "laundry_requests"}
 
     def test_seeds_two_students(self, fresh_app):
         init_db(fresh_app)
@@ -201,6 +201,7 @@ class TestInitDb:
 
     def test_leaves_no_open_app_context(self, fresh_app):
         from flask import current_app
+
         init_db(fresh_app)
         with pytest.raises(RuntimeError):
             _ = current_app.name

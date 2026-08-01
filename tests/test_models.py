@@ -1,15 +1,15 @@
 """Tests for models.py -- Student, LaundryRequest and Admin."""
+
 from datetime import datetime, timedelta
 
 import pytest
+from models import Admin, LaundryRequest, Student, db
 from sqlalchemy.exc import IntegrityError
-
-from models import db, Student, Admin, LaundryRequest
-
 
 # ---------------------------------------------------------------------------
 # Student password handling
 # ---------------------------------------------------------------------------
+
 
 class TestStudentPassword:
     def test_check_password_accepts_correct_password(self, make_student):
@@ -68,6 +68,7 @@ class TestStudentPassword:
 # Admin password handling
 # ---------------------------------------------------------------------------
 
+
 class TestAdminPassword:
     def test_check_password_accepts_correct_password(self, make_admin):
         admin = make_admin(password="admin123")
@@ -97,6 +98,7 @@ class TestAdminPassword:
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
+
 
 class TestDefaults:
     def test_student_remaining_quota_defaults_to_30(self, make_student):
@@ -144,6 +146,7 @@ class TestDefaults:
 # __repr__
 # ---------------------------------------------------------------------------
 
+
 class TestRepr:
     def test_student_repr(self, make_student):
         student = make_student(student_id="STU042")
@@ -167,6 +170,7 @@ class TestRepr:
 # ---------------------------------------------------------------------------
 # Constraints
 # ---------------------------------------------------------------------------
+
 
 class TestConstraints:
     def test_duplicate_student_id_raises_integrity_error(self, make_student, db_session):
@@ -260,6 +264,7 @@ class TestConstraints:
 # Relationship / backref
 # ---------------------------------------------------------------------------
 
+
 class TestRelationship:
     def test_laundry_requests_starts_empty(self, make_student):
         student = make_student(student_id="STU001")
@@ -304,6 +309,7 @@ class TestRelationship:
 # ---------------------------------------------------------------------------
 # Table wiring
 # ---------------------------------------------------------------------------
+
 
 def test_table_names(app):
     assert Student.__tablename__ == "students"

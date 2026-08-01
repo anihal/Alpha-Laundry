@@ -1,11 +1,10 @@
 """Tests for routes.py -- the admin blueprint (dashboard, update_status)."""
+
 import re
 from datetime import datetime, timedelta
 
 import pytest
-
 from models import LaundryRequest
-
 
 # The admin template renders each job id as `>#123</td>`. Parsing the ids out
 # properly matters: a naive `f"#{id}" in body` substring test would report job
@@ -23,6 +22,7 @@ def _job_ids_in(body, section):
 # ---------------------------------------------------------------------------
 # Admin dashboard
 # ---------------------------------------------------------------------------
+
 
 class TestAdminDashboard:
     def test_renders_for_a_logged_in_admin(self, admin_client):
@@ -50,8 +50,9 @@ class TestAdminDashboard:
     ):
         make_student(student_id="STU001")
         active = make_request(student_id="STU001", num_clothes=1, status="submitted")
-        completed = make_request(student_id="STU001", num_clothes=2,
-                                 status="completed", completed_date=times[1])
+        completed = make_request(
+            student_id="STU001", num_clothes=2, status="completed", completed_date=times[1]
+        )
         cancelled = make_request(student_id="STU001", num_clothes=3, status="cancelled")
 
         body = admin_client.get("/admin/dashboard").get_data(as_text=True)
@@ -82,10 +83,12 @@ class TestAdminDashboard:
         self, admin_client, make_student, make_request, times
     ):
         make_student(student_id="STU001")
-        oldest = make_request(student_id="STU001", num_clothes=1,
-                              status="submitted", submission_date=times[0])
-        newest = make_request(student_id="STU001", num_clothes=2,
-                              status="processing", submission_date=times[5])
+        oldest = make_request(
+            student_id="STU001", num_clothes=1, status="submitted", submission_date=times[0]
+        )
+        newest = make_request(
+            student_id="STU001", num_clothes=2, status="processing", submission_date=times[5]
+        )
         body = admin_client.get("/admin/dashboard").get_data(as_text=True)
         assert _job_ids_in(body, "running") == [newest.id, oldest.id]
 
@@ -93,8 +96,9 @@ class TestAdminDashboard:
         self, admin_client, make_student, make_request, times
     ):
         make_student(student_id="STU001")
-        done = make_request(student_id="STU001", num_clothes=1,
-                            status="completed", completed_date=times[1])
+        done = make_request(
+            student_id="STU001", num_clothes=1, status="completed", completed_date=times[1]
+        )
         make_request(student_id="STU001", num_clothes=2, status="submitted")
         make_request(student_id="STU001", num_clothes=3, status="cancelled")
 
@@ -102,16 +106,18 @@ class TestAdminDashboard:
         assert _job_ids_in(body, "completed") == [done.id]
         assert "No completed jobs yet." not in body
 
-    def test_completed_jobs_are_capped_at_20(
-        self, admin_client, make_student, make_request
-    ):
+    def test_completed_jobs_are_capped_at_20(self, admin_client, make_student, make_request):
         make_student(student_id="STU001")
         base = datetime(2026, 1, 1, 0, 0, 0)
         ids = []
         for i in range(25):
-            req = make_request(student_id="STU001", num_clothes=1, status="completed",
-                               submission_date=base + timedelta(minutes=i),
-                               completed_date=base + timedelta(hours=i))
+            req = make_request(
+                student_id="STU001",
+                num_clothes=1,
+                status="completed",
+                submission_date=base + timedelta(minutes=i),
+                completed_date=base + timedelta(hours=i),
+            )
             ids.append(req.id)
 
         body = admin_client.get("/admin/dashboard").get_data(as_text=True)
@@ -125,10 +131,12 @@ class TestAdminDashboard:
         self, admin_client, make_student, make_request, times
     ):
         make_student(student_id="STU001")
-        early = make_request(student_id="STU001", num_clothes=1,
-                             status="completed", completed_date=times[1])
-        late = make_request(student_id="STU001", num_clothes=2,
-                            status="completed", completed_date=times[6])
+        early = make_request(
+            student_id="STU001", num_clothes=1, status="completed", completed_date=times[1]
+        )
+        late = make_request(
+            student_id="STU001", num_clothes=2, status="completed", completed_date=times[6]
+        )
         body = admin_client.get("/admin/dashboard").get_data(as_text=True)
         assert _job_ids_in(body, "completed") == [late.id, early.id]
 
@@ -151,8 +159,9 @@ class TestAdminDashboard:
         for _ in range(3):
             make_request(student_id="STU002", num_clothes=1, status="processing")
         for _ in range(4):
-            make_request(student_id="STU003", num_clothes=1,
-                         status="completed", completed_date=times[1])
+            make_request(
+                student_id="STU003", num_clothes=1, status="completed", completed_date=times[1]
+            )
         make_request(student_id="STU001", num_clothes=1, status="cancelled")
 
         resp = admin_client.get("/admin/dashboard")
@@ -169,9 +178,7 @@ class TestAdminDashboard:
         client = app.test_client()
         client.post("/admin/login", data={"username": "admin", "password": "admin123"})
         stats = _captured_stats(client.get("/admin/dashboard"))
-        assert stats == {
-            "submitted": 0, "processing": 0, "completed": 0, "total_students": 0
-        }
+        assert stats == {"submitted": 0, "processing": 0, "completed": 0, "total_students": 0}
 
     def test_stats_total_students_counts_students_not_requests(
         self, admin_client, make_student, make_request
@@ -204,6 +211,7 @@ class TestAdminDashboard:
 def _captured_stats(resp):
     """Recover the four stat numbers from the rendered admin dashboard."""
     import re
+
     body = resp.get_data(as_text=True)
     pairs = re.findall(
         r'text-gray-500">(Submitted|Processing|Completed|Total Students)</p>\s*'
@@ -223,6 +231,7 @@ def _captured_stats(resp):
 # ---------------------------------------------------------------------------
 # update_status
 # ---------------------------------------------------------------------------
+
 
 class TestUpdateStatus:
     @pytest.fixture
@@ -257,9 +266,7 @@ class TestUpdateStatus:
         assert LaundryRequest.query.get(job.id).completed_date is None
 
     def test_redirects_to_the_admin_dashboard(self, admin_client, job):
-        resp = admin_client.post(
-            f"/admin/update-status/{job.id}", data={"status": "processing"}
-        )
+        resp = admin_client.post(f"/admin/update-status/{job.id}", data={"status": "processing"})
         assert resp.status_code == 302
         assert resp.headers["Location"].endswith("/admin/dashboard")
 
@@ -287,9 +294,10 @@ class TestUpdateStatus:
 
     def test_non_integer_request_id_returns_404(self, admin_client):
         """The <int:request_id> converter refuses to match a non-integer."""
-        assert admin_client.post(
-            "/admin/update-status/abc", data={"status": "completed"}
-        ).status_code == 404
+        assert (
+            admin_client.post("/admin/update-status/abc", data={"status": "completed"}).status_code
+            == 404
+        )
 
     def test_anonymous_cannot_update(self, client, make_student, make_request):
         make_student(student_id="STU001")
@@ -300,9 +308,7 @@ class TestUpdateStatus:
 
     def test_a_student_cannot_update(self, student_client, make_request):
         req = make_request(student_id="STU001", num_clothes=5, status="submitted")
-        resp = student_client.post(
-            f"/admin/update-status/{req.id}", data={"status": "completed"}
-        )
+        resp = student_client.post(f"/admin/update-status/{req.id}", data={"status": "completed"})
         assert resp.status_code == 302
         assert resp.headers["Location"].endswith("/admin/login")
         assert LaundryRequest.query.get(req.id).status == "submitted"
@@ -354,9 +360,7 @@ class TestUpdateStatus:
         admin_client.post(f"/admin/update-status/{job.id}", data={"status": ""})
         assert LaundryRequest.query.get(job.id).status == ""
 
-    def test_moving_out_of_completed_leaves_a_stale_completed_date(
-        self, admin_client, job
-    ):
+    def test_moving_out_of_completed_leaves_a_stale_completed_date(self, admin_client, job):
         admin_client.post(f"/admin/update-status/{job.id}", data={"status": "completed"})
         stamped = LaundryRequest.query.get(job.id).completed_date
         assert stamped is not None
@@ -384,8 +388,9 @@ class TestUpdateStatus:
     def test_cancelling_does_not_refund_the_quota(
         self, app, make_student, make_admin, make_request
     ):
-        make_student(student_id="STU001", name="John Doe",
-                     password="password123", remaining_quota=30)
+        make_student(
+            student_id="STU001", name="John Doe", password="password123", remaining_quota=30
+        )
         make_admin(username="admin", password="admin123")
 
         student = app.test_client()
@@ -398,6 +403,7 @@ class TestUpdateStatus:
         admin.post(f"/admin/update-status/{req.id}", data={"status": "cancelled"})
 
         from models import Student
+
         # BUG: routes.py:185-198 -- cancelling a job never returns the deducted
         # clothes to the student's quota (routes.py:145 deducted them on
         # submission). The student permanently loses 10 from their allowance for

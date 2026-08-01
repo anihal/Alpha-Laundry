@@ -1,10 +1,9 @@
 """Tests for routes.py -- the student blueprint (dashboard, submit_request)."""
+
 import re
 
 import pytest
-
-from models import Student, LaundryRequest
-
+from models import LaundryRequest, Student
 
 # dashboard.html renders each request id as `>#123</td>`. Extract the ids
 # properly rather than substring-testing, which would match #1 inside #10.
@@ -20,6 +19,7 @@ def _request_ids_in(body):
 # Student dashboard
 # ---------------------------------------------------------------------------
 
+
 class TestStudentDashboard:
     def test_renders_for_a_logged_in_student(self, student_client):
         resp = student_client.get("/student/dashboard")
@@ -27,8 +27,9 @@ class TestStudentDashboard:
         assert "Your Dashboard" in resp.get_data(as_text=True)
 
     def test_shows_the_remaining_quota(self, app, make_student):
-        make_student(student_id="STU001", name="John Doe",
-                     password="password123", remaining_quota=17)
+        make_student(
+            student_id="STU001", name="John Doe", password="password123", remaining_quota=17
+        )
         client = app.test_client()
         client.post("/login", data={"student_id": "STU001", "password": "password123"})
         assert "17" in client.get("/student/dashboard").get_data(as_text=True)
@@ -44,9 +45,7 @@ class TestStudentDashboard:
         assert "No requests yet" not in body
         assert set(_request_ids_in(body)) == {a.id, b.id}
 
-    def test_excludes_other_students_requests(
-        self, student_client, make_student, make_request
-    ):
+    def test_excludes_other_students_requests(self, student_client, make_student, make_request):
         make_student(student_id="STU002", name="Jane", password="pw")
         mine = make_request(student_id="STU001", num_clothes=3)
         theirs = make_request(student_id="STU002", num_clothes=99)
@@ -70,14 +69,16 @@ class TestStudentDashboard:
         assert "Total Requests" in body
 
     def test_completed_requests_are_shown_too(self, student_client, make_request, times):
-        make_request(student_id="STU001", num_clothes=2,
-                     status="completed", completed_date=times[3])
+        make_request(
+            student_id="STU001", num_clothes=2, status="completed", completed_date=times[3]
+        )
         body = student_client.get("/student/dashboard").get_data(as_text=True)
         assert "Completed" in body
 
     def test_exhausted_quota_shows_the_warning(self, app, make_student):
-        make_student(student_id="STU001", name="John Doe",
-                     password="password123", remaining_quota=0)
+        make_student(
+            student_id="STU001", name="John Doe", password="password123", remaining_quota=0
+        )
         client = app.test_client()
         client.post("/login", data={"student_id": "STU001", "password": "password123"})
         body = client.get("/student/dashboard").get_data(as_text=True)
@@ -95,6 +96,7 @@ class TestStudentDashboard:
 # ---------------------------------------------------------------------------
 # submit_request -- happy paths
 # ---------------------------------------------------------------------------
+
 
 class TestSubmitRequestHappyPath:
     def test_creates_the_row(self, student_client):
@@ -150,6 +152,7 @@ class TestSubmitRequestHappyPath:
 # submit_request -- rejections
 # ---------------------------------------------------------------------------
 
+
 class TestSubmitRequestRejections:
     def test_zero_is_rejected(self, student_client):
         resp = student_client.post(
@@ -186,13 +189,12 @@ class TestSubmitRequestRejections:
         assert Student.query.filter_by(student_id="STU001").one().remaining_quota == 30
 
     def test_one_over_quota_is_rejected(self, app, make_student):
-        make_student(student_id="STU001", name="John Doe",
-                     password="password123", remaining_quota=10)
+        make_student(
+            student_id="STU001", name="John Doe", password="password123", remaining_quota=10
+        )
         client = app.test_client()
         client.post("/login", data={"student_id": "STU001", "password": "password123"})
-        resp = client.post(
-            "/student/submit", data={"num_clothes": "11"}, follow_redirects=True
-        )
+        resp = client.post("/student/submit", data={"num_clothes": "11"}, follow_redirects=True)
         assert "You only have 10 clothes remaining in your quota." in resp.get_data(as_text=True)
         assert LaundryRequest.query.count() == 0
 
@@ -214,6 +216,7 @@ class TestSubmitRequestRejections:
 # ---------------------------------------------------------------------------
 # submit_request -- non-numeric input (documented bugs)
 # ---------------------------------------------------------------------------
+
 
 class TestSubmitRequestNonNumericInput:
     """routes.py:126 does `int(request.form.get("num_clothes", 0))` with no
@@ -269,8 +272,9 @@ class TestSubmitRequestNonNumericInput:
 
     def test_deleted_student_with_live_session_raises(self, app, make_student, db_session):
         """submit_request never checks that the student lookup succeeded."""
-        student = make_student(student_id="STU001", name="John Doe",
-                               password="password123", remaining_quota=30)
+        student = make_student(
+            student_id="STU001", name="John Doe", password="password123", remaining_quota=30
+        )
         client = app.test_client()
         client.post("/login", data={"student_id": "STU001", "password": "password123"})
         db_session.delete(student)
@@ -287,6 +291,7 @@ class TestSubmitRequestNonNumericInput:
 # Cross-cutting behaviour
 # ---------------------------------------------------------------------------
 
+
 class TestSubmitRequestConcurrencySemantics:
     def test_quota_check_and_deduction_are_not_atomic(self, app, make_student):
         """Two clients sharing one session can both pass the quota check.
@@ -295,8 +300,9 @@ class TestSubmitRequestConcurrencySemantics:
         but it documents that the read-check-write in routes.py:134-148 runs
         without any row lock or DB-level constraint.
         """
-        make_student(student_id="STU001", name="John Doe",
-                     password="password123", remaining_quota=10)
+        make_student(
+            student_id="STU001", name="John Doe", password="password123", remaining_quota=10
+        )
         c1 = app.test_client()
         c1.post("/login", data={"student_id": "STU001", "password": "password123"})
         c2 = app.test_client()

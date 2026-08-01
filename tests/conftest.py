@@ -12,14 +12,14 @@ to make the app testable is monkeypatch the *class attributes* on
 Flask-SQLAlchemy binds the URI during ``init_app``, so patching after
 construction would be too late for the database URL.
 """
+
 from datetime import datetime, timedelta
 
 import pytest
-
 from app import create_app
 from config import Config
-from models import db as _db, Student, Admin, LaundryRequest
-
+from models import Admin, LaundryRequest, Student
+from models import db as _db
 
 TEST_SECRET_KEY = "test-secret-key-do-not-use-in-production"
 
@@ -70,6 +70,7 @@ def db_session(app):
 # Factory fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def make_student(db_session):
     """Create and persist a Student.
@@ -77,8 +78,10 @@ def make_student(db_session):
     ``remaining_quota=None`` means "don't pass the column at all", so the
     model-level default (30) is exercised.
     """
-    def _make(student_id="STU001", name="Test Student",
-              password="password123", remaining_quota=None):
+
+    def _make(
+        student_id="STU001", name="Test Student", password="password123", remaining_quota=None
+    ):
         kwargs = {"student_id": student_id, "name": name}
         if remaining_quota is not None:
             kwargs["remaining_quota"] = remaining_quota
@@ -87,18 +90,21 @@ def make_student(db_session):
         db_session.add(student)
         db_session.commit()
         return student
+
     return _make
 
 
 @pytest.fixture
 def make_admin(db_session):
     """Create and persist an Admin."""
+
     def _make(username="admin", password="admin123"):
         admin = Admin(username=username)
         admin.set_password(password)
         db_session.add(admin)
         db_session.commit()
         return admin
+
     return _make
 
 
@@ -109,8 +115,10 @@ def make_request(db_session):
     ``status``/``submission_date`` default to None here so that omitting them
     exercises the column defaults declared on the model.
     """
-    def _make(student_id="STU001", num_clothes=5, status=None,
-              submission_date=None, completed_date=None):
+
+    def _make(
+        student_id="STU001", num_clothes=5, status=None, submission_date=None, completed_date=None
+    ):
         kwargs = {"student_id": student_id, "num_clothes": num_clothes}
         if status is not None:
             kwargs["status"] = status
@@ -122,6 +130,7 @@ def make_request(db_session):
         db_session.add(req)
         db_session.commit()
         return req
+
     return _make
 
 
@@ -136,11 +145,13 @@ def times():
 # Authenticated client helpers
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def student_user(make_student):
     """A concrete student used by the logged-in-student fixtures."""
-    return make_student(student_id="STU001", name="John Doe",
-                        password="password123", remaining_quota=30)
+    return make_student(
+        student_id="STU001", name="John Doe", password="password123", remaining_quota=30
+    )
 
 
 @pytest.fixture
