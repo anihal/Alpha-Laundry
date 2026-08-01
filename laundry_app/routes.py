@@ -105,7 +105,14 @@ def login():
     """Student login"""
     if request.method == "POST":
         student_id = request.form.get("student_id")
-        password = request.form.get("password")
+        # An absent password field arrives as None, and check_password(None)
+        # raises inside werkzeug (it calls .encode() on the value) -> HTTP 500.
+        # Because an *unknown* student_id short-circuits before that call and
+        # renders a normal 200, the crash was a user-enumeration oracle: post a
+        # student_id with no password field at all and the status code alone
+        # says whether the id exists. Defaulting to "" keeps a missing password
+        # on exactly the same path as a wrong one.
+        password = request.form.get("password", "")
 
         student = Student.query.filter_by(student_id=student_id).first()
 
@@ -131,7 +138,8 @@ def admin_login():
     """Admin login"""
     if request.method == "POST":
         username = request.form.get("username")
-        password = request.form.get("password")
+        # Same enumeration oracle as the student login, over admin usernames.
+        password = request.form.get("password", "")
 
         admin = Admin.query.filter_by(username=username).first()
 
