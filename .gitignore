@@ -10,6 +10,10 @@ node_modules/
 # Testing
 /coverage
 /.nyc_output
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 cypress/videos/
 cypress/screenshots/
 tests/e2e/videos/
