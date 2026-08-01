@@ -1,12 +1,18 @@
 """
-URL endpoints and business logic
+URL endpoints
+
+Handlers here are deliberately thin: read the form, call into ``services``,
+then translate the result (or the domain error) into a flash message and a
+redirect. The rules themselves live in ``laundry_app/services/``.
 """
 
-from datetime import datetime
 from functools import wraps
 
 from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
+
 from models import Admin, LaundryRequest, Student, db
+from services import quota as quota_service
+from services import requests as requests_service
 
 # Create blueprints
 main = Blueprint("main", __name__)
@@ -174,26 +180,18 @@ def dashboard():
 @login_required
 def submit_request():
     """Submit a new laundry request"""
-    num_clothes = int(request.form.get("num_clothes", 0))
+    num_clothes = quota_service.parse_quantity(request.form.get("num_clothes", 0))
 
     student = g.student
 
-    if num_clothes <= 0:
+    try:
+        requests_service.submit(db.session, student, num_clothes)
+    except quota_service.InvalidQuantity:
         flash("Please enter a valid number of clothes.", "error")
         return redirect(url_for("student.dashboard"))
-
-    if num_clothes > student.remaining_quota:
-        flash(f"You only have {student.remaining_quota} clothes remaining in your quota.", "error")
+    except quota_service.QuotaExceeded as exc:
+        flash(f"You only have {exc.remaining} clothes remaining in your quota.", "error")
         return redirect(url_for("student.dashboard"))
-
-    # Create new laundry request
-    new_request = LaundryRequest(student_id=student.student_id, num_clothes=num_clothes)
-
-    # Deduct from quota
-    student.remaining_quota -= num_clothes
-
-    db.session.add(new_request)
-    db.session.commit()
 
     flash(f"Request submitted for {num_clothes} clothes!", "success")
     return redirect(url_for("student.dashboard"))
@@ -242,12 +240,8 @@ def update_status(request_id):
     new_status = request.form.get("status")
 
     laundry_request = LaundryRequest.query.get_or_404(request_id)
-    laundry_request.status = new_status
 
-    if new_status == "completed":
-        laundry_request.completed_date = datetime.utcnow()
-
-    db.session.commit()
+    requests_service.set_status(db.session, laundry_request, new_status)
 
     flash(f"Job #{request_id} status updated to {new_status}.", "success")
     return redirect(url_for("admin.dashboard"))

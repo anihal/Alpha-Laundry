@@ -1,10 +1,17 @@
-"""Tests for models.py -- Student, LaundryRequest and Admin."""
+"""Tests for models.py -- Student, LaundryRequest and Admin.
+
+These never needed an application: a Flask-SQLAlchemy model is an ordinary
+declarative class. They run against the plain in-memory session from
+``tests/unit/conftest.py``, which is why ``Model.query`` (the one part of
+Flask-SQLAlchemy that requires an app context) is never used here.
+"""
 
 from datetime import datetime, timedelta
 
 import pytest
-from models import Admin, LaundryRequest, Student, db
 from sqlalchemy.exc import IntegrityError
+
+from models import Admin, LaundryRequest, Student, db
 
 # ---------------------------------------------------------------------------
 # Student password handling
@@ -300,7 +307,7 @@ class TestRelationship:
         student = make_student(student_id="STU001")
         student.laundry_requests.append(LaundryRequest(num_clothes=6))
         db_session.commit()
-        stored = LaundryRequest.query.all()
+        stored = db_session.query(LaundryRequest).all()
         assert len(stored) == 1
         assert stored[0].student_id == "STU001"
         assert stored[0].num_clothes == 6
@@ -311,7 +318,7 @@ class TestRelationship:
 # ---------------------------------------------------------------------------
 
 
-def test_table_names(app):
+def test_table_names():
     assert Student.__tablename__ == "students"
     assert Admin.__tablename__ == "admins"
     assert LaundryRequest.__tablename__ == "laundry_requests"

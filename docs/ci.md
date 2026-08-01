@@ -9,11 +9,37 @@ human merges it.
 | Job | What it does | Blocking |
 |---|---|---|
 | `lint` | `ruff check` + `ruff format --check` | yes |
-| `unit` | `pytest -m unit` on Python 3.11, 3.12, 3.13 | yes |
-| `integration` | `pytest -m integration`, after `unit` passes | yes |
-| `coverage` | Full suite with `--cov-fail-under=80`; posts a summary and uploads an HTML report | yes |
+| `unit` | `pytest -m unit --no-cov -q` on Python 3.11, 3.12, 3.13 | yes |
+| `integration` | `pytest -m integration --no-cov -q`, after `unit` passes | yes |
+| `coverage` | Full suite with `--cov-fail-under=80`, after `unit` and `integration`; posts a summary and uploads an HTML report | yes |
 | `security` | `pip-audit` against `laundry_app/requirements.txt` | yes |
 | `ci-required` | Aggregates all of the above into one check | yes |
+
+`unit` is the widest job (three Python versions) because it is also the
+cheapest — the whole set runs in a few seconds and needs no Flask application.
+`integration` runs on one version only: it checks that the pieces are wired
+together, not that the language behaves differently across releases, and it
+sits behind `needs: [unit]` so a broken rule fails before anything slower
+starts.
+
+## Test layout
+
+```
+tests/
+  unit/          no Flask app, no test_client, no HTTP -- the bulk of the suite
+  integration/   the whole stack: factory, blueprints, session cookie, templates
+  conftest.py    applies the `unit` / `integration` marker by directory
+```
+
+Markers are applied in `tests/conftest.py` based on which directory a test was
+collected from, not written at the top of each file. A new file therefore
+cannot be forgotten or mis-tagged, and `pytest -m unit` / `pytest -m
+integration` always partition the suite exactly. To check that invariant:
+
+```bash
+.venv/bin/python -m pytest -m "unit and integration" --collect-only    # 0 tests
+.venv/bin/python -m pytest -m "not unit and not integration" --collect-only  # 0 tests
+```
 
 ## Why a single `ci-required` check
 

@@ -34,12 +34,11 @@ jobs:
       - name: Format check
         run: ruff format --check .
 
-  # Today the suite is one flat set of tests, so this is a single job. It splits
-  # into separate `unit` and `integration` jobs once the service-layer refactor
-  # lands and the suite carries those markers. `ci-required` is the only
-  # protected check, so that change will not require editing the ruleset.
-  tests:
-    name: tests
+  # The fast, framework-free bulk of the suite. It is the widest job (three
+  # Python versions) because it is also the cheapest, and it gates everything
+  # below: there is no point paying for the slower jobs if the rules are broken.
+  unit:
+    name: unit
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -53,12 +52,30 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r laundry_app/requirements.txt pytest pytest-cov
-      - name: Run test suite
-        run: pytest --no-cov -q
+      - name: Run unit tests
+        run: pytest -m unit --no-cov -q
+
+  # The whole stack: app factory, blueprints, session cookie, templates. Runs on
+  # one Python version only -- it is checking wiring, not language behaviour --
+  # and only after `unit` has passed.
+  integration:
+    name: integration
+    needs: [unit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_DEFAULT }}
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r laundry_app/requirements.txt pytest pytest-cov
+      - name: Run integration tests
+        run: pytest -m integration --no-cov -q
 
   coverage:
     name: coverage
-    needs: [tests]
+    needs: [unit, integration]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -131,7 +148,7 @@ jobs:
   ci-required:
     name: ci-required
     if: always()
-    needs: [lint, tests, coverage, security]
+    needs: [lint, unit, integration, coverage, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all upstream jobs succeeded
@@ -141,4 +158,4 @@ jobs:
           echo '${{ toJSON(needs) }}'
           exit 1
       - name: All checks passed
-        run: echo "lint, tests, coverage and security all succeeded."
+        run: echo "lint, unit, integration, coverage and security all succeeded."

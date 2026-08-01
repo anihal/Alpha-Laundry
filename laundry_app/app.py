@@ -6,8 +6,9 @@ A modern, modular Flask application for laundry management
 import secrets
 from datetime import timedelta
 
-from config import INSECURE_SECRET_KEYS, Config
 from flask import Flask
+
+from config import INSECURE_SECRET_KEYS, Config
 from models import Admin, Student, db
 from routes import admin, auth, main, student
 
