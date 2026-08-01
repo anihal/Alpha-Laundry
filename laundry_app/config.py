@@ -1,7 +1,9 @@
 """
 Configuration module - loads environment variables
 """
+
 import os
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file

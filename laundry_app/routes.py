@@ -1,11 +1,12 @@
 """
 URL endpoints and business logic
 """
+
 from datetime import datetime
 from functools import wraps
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 
-from models import db, Student, Admin, LaundryRequest
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from models import Admin, LaundryRequest, Student, db
 
 # Create blueprints
 main = Blueprint("main", __name__)
@@ -18,31 +19,37 @@ admin = Blueprint("admin", __name__, url_prefix="/admin")
 # DECORATORS
 # =====================================================
 
+
 def login_required(f):
     """Decorator to require login"""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
             flash("Please log in to access this page.", "warning")
             return redirect(url_for("auth.login"))
         return f(*args, **kwargs)
+
     return decorated_function
 
 
 def admin_required(f):
     """Decorator to require admin login"""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "admin_id" not in session:
             flash("Admin access required.", "warning")
             return redirect(url_for("auth.admin_login"))
         return f(*args, **kwargs)
+
     return decorated_function
 
 
 # =====================================================
 # MAIN ROUTES
 # =====================================================
+
 
 @main.route("/")
 def index():
@@ -53,6 +60,7 @@ def index():
 # =====================================================
 # AUTH ROUTES
 # =====================================================
+
 
 @auth.route("/login", methods=["GET", "POST"])
 def login():
@@ -107,14 +115,17 @@ def logout():
 # STUDENT ROUTES
 # =====================================================
 
+
 @student.route("/dashboard")
 @login_required
 def dashboard():
     """Student dashboard - view remaining quota and history"""
     student = Student.query.filter_by(student_id=session["student_id"]).first()
-    requests = LaundryRequest.query.filter_by(student_id=session["student_id"]).order_by(
-        LaundryRequest.submission_date.desc()
-    ).all()
+    requests = (
+        LaundryRequest.query.filter_by(student_id=session["student_id"])
+        .order_by(LaundryRequest.submission_date.desc())
+        .all()
+    )
 
     return render_template("dashboard.html", student=student, requests=requests)
 
@@ -136,10 +147,7 @@ def submit_request():
         return redirect(url_for("student.dashboard"))
 
     # Create new laundry request
-    new_request = LaundryRequest(
-        student_id=student.student_id,
-        num_clothes=num_clothes
-    )
+    new_request = LaundryRequest(student_id=student.student_id, num_clothes=num_clothes)
 
     # Deduct from quota
     student.remaining_quota -= num_clothes
@@ -155,29 +163,36 @@ def submit_request():
 # ADMIN ROUTES
 # =====================================================
 
+
 @admin.route("/dashboard")
 @admin_required
 def dashboard():
     """Admin dashboard - view all running jobs"""
     # Get jobs grouped by status
-    running_jobs = LaundryRequest.query.filter(
-        LaundryRequest.status.in_(["submitted", "processing"])
-    ).order_by(LaundryRequest.submission_date.desc()).all()
+    running_jobs = (
+        LaundryRequest.query.filter(LaundryRequest.status.in_(["submitted", "processing"]))
+        .order_by(LaundryRequest.submission_date.desc())
+        .all()
+    )
 
-    completed_jobs = LaundryRequest.query.filter_by(status="completed").order_by(
-        LaundryRequest.completed_date.desc()
-    ).limit(20).all()
+    completed_jobs = (
+        LaundryRequest.query.filter_by(status="completed")
+        .order_by(LaundryRequest.completed_date.desc())
+        .limit(20)
+        .all()
+    )
 
     # Stats
     stats = {
         "submitted": LaundryRequest.query.filter_by(status="submitted").count(),
         "processing": LaundryRequest.query.filter_by(status="processing").count(),
         "completed": LaundryRequest.query.filter_by(status="completed").count(),
-        "total_students": Student.query.count()
+        "total_students": Student.query.count(),
     }
 
-    return render_template("admin.html", running_jobs=running_jobs,
-                         completed_jobs=completed_jobs, stats=stats)
+    return render_template(
+        "admin.html", running_jobs=running_jobs, completed_jobs=completed_jobs, stats=stats
+    )
 
 
 @admin.route("/update-status/<int:request_id>", methods=["POST"])

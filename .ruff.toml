@@ -1,0 +1,33 @@
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "W",    # pycodestyle warnings
+  "I",    # import sorting
+  "B",    # bugbear -- real logic traps
+  "A",    # builtin shadowing
+  "C4",   # comprehension simplifications
+  "UP",   # outdated syntax
+  "RUF",  # ruff-specific
+]
+
+ignore = [
+  "E501",  # line length is enforced by the formatter, not the linter
+]
+
+[lint.per-file-ignores]
+# The student and admin blueprints each define a route handler named
+# `dashboard` in this module. Renaming either changes its `url_for` endpoint
+# and breaks the templates, so this is deferred to the CR that splits
+# routes.py into per-blueprint modules.
+"laundry_app/routes.py" = ["F811"]
+
+# Tests deliberately assert on current (sometimes buggy) behavior and use
+# fixture names that shadow outer scopes.
+"tests/**" = ["B011", "RUF018"]
+
+[format]
+quote-style = "double"

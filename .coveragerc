@@ -1,0 +1,9 @@
+# Coverage configuration for the Alpha Laundry test suite.
+# NOTE: deliberately no `exclude_lines` for the `if __name__ == "__main__":`
+# block in app.py -- it is left visible in the "Missing" column so the report
+# is honest about what is genuinely unexercised.
+[run]
+branch = False
+omit =
+    */tests/*
+    */.venv/*

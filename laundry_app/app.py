@@ -2,10 +2,11 @@
 Alpha Laundry - Main Application Entry Point
 A modern, modular Flask application for laundry management
 """
-from flask import Flask
+
 from config import Config
-from models import db, Student, Admin
-from routes import main, auth, student, admin
+from flask import Flask
+from models import Admin, Student, db
+from routes import admin, auth, main, student
 
 
 def create_app():
@@ -36,19 +37,11 @@ def init_db(app):
 
         # Create sample student if none exists
         if not Student.query.first():
-            sample_student = Student(
-                student_id="STU001",
-                name="John Doe",
-                remaining_quota=30
-            )
+            sample_student = Student(student_id="STU001", name="John Doe", remaining_quota=30)
             sample_student.set_password("password123")
             db.session.add(sample_student)
 
-            sample_student2 = Student(
-                student_id="STU002",
-                name="Jane Smith",
-                remaining_quota=25
-            )
+            sample_student2 = Student(student_id="STU002", name="Jane Smith", remaining_quota=25)
             sample_student2.set_password("password123")
             db.session.add(sample_student2)
 
