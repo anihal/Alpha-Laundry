@@ -26,10 +26,12 @@
             <p class="text-sm font-medium text-gray-500">Completed</p>
             <p class="text-3xl font-bold text-green-600 mt-2">{{ stats.completed }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <a href="{{ url_for('admin.students') }}"
+           class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 block hover:border-indigo-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all group">
             <p class="text-sm font-medium text-gray-500">Total Students</p>
             <p class="text-3xl font-bold text-indigo-600 mt-2">{{ stats.total_students }}</p>
-        </div>
+            <p class="text-xs text-gray-400 mt-1 group-hover:text-indigo-600">View directory &rarr;</p>
+        </a>
     </div>
 
     <!-- Running Jobs -->

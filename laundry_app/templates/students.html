@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Students - Alpha Laundry{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Enrolled Students</h1>
+            <p class="text-gray-500 mt-1">{{ students|length }} enrolled</p>
+        </div>
+        <a href="{{ url_for('admin.dashboard') }}"
+           class="text-indigo-600 hover:text-indigo-800 font-medium">&larr; Back to dashboard</a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <caption class="sr-only">Students enrolled in the laundry service</caption>
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Quota</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requests</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clothes Washed</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for row in students %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <code class="text-sm font-medium text-gray-900">{{ row.student.student_id }}</code>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ row.student.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% set quota = row.student.remaining_quota %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if quota <= 0 %}bg-red-100 text-red-800
+                                {% elif quota <= 10 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-green-100 text-green-800{% endif %}">
+                                {{ quota }} left
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ row.total_requests }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ row.total_clothes }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ row.student.created_at.strftime('%Y-%m-%d') if row.student.created_at else '-' }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            No students enrolled yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
