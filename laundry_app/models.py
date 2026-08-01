@@ -1,15 +1,18 @@
 """
 Database models using SQLAlchemy
 """
+
 from datetime import datetime
+
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
 
 
 class Student(db.Model):
     """Student model - users who submit laundry requests"""
+
     __tablename__ = "students"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -34,12 +37,15 @@ class Student(db.Model):
 
 class LaundryRequest(db.Model):
     """Laundry request model - tracks laundry jobs"""
+
     __tablename__ = "laundry_requests"
 
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(20), db.ForeignKey("students.student_id"), nullable=False)
     num_clothes = db.Column(db.Integer, nullable=False)
-    status = db.Column(db.String(20), default="submitted")  # submitted, processing, completed, cancelled
+    status = db.Column(
+        db.String(20), default="submitted"
+    )  # submitted, processing, completed, cancelled
     submission_date = db.Column(db.DateTime, default=datetime.utcnow)
     completed_date = db.Column(db.DateTime, nullable=True)
 
@@ -49,6 +55,7 @@ class LaundryRequest(db.Model):
 
 class Admin(db.Model):
     """Admin model - users who manage laundry operations"""
+
     __tablename__ = "admins"
 
     id = db.Column(db.Integer, primary_key=True)
