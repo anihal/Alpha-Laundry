@@ -12,13 +12,8 @@ human merges it.
 | `unit` | `pytest -m unit` on Python 3.11, 3.12, 3.13 | yes |
 | `integration` | `pytest -m integration`, after `unit` passes | yes |
 | `coverage` | Full suite with `--cov-fail-under=80`; posts a summary and uploads an HTML report | yes |
-| `security` | `pip-audit` against `laundry_app/requirements.txt` | no (see below) |
+| `security` | `pip-audit` against `laundry_app/requirements.txt` | yes |
 | `ci-required` | Aggregates all of the above into one check | yes |
-
-`security` is deliberately non-blocking today. The pinned `Werkzeug==3.0.1` has
-three known advisories, so making it blocking would fail every PR until that
-upgrade lands. Flip `continue-on-error: false` in the workflow once dependencies
-are current.
 
 ## Why a single `ci-required` check
 

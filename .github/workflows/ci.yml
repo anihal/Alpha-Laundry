@@ -108,12 +108,8 @@ jobs:
           cache: pip
       - name: Install pip-audit
         run: pip install pip-audit
-      # Non-blocking for now: the pinned Werkzeug 3.0.1 has three known
-      # advisories, so this would fail every PR until that upgrade lands.
-      # Flip `continue-on-error` to false once dependencies are current.
       - name: Audit dependencies
         id: audit
-        continue-on-error: true
         run: pip-audit -r laundry_app/requirements.txt --desc 2>&1 | tee audit.txt
       - name: Publish audit summary
         if: always()
@@ -122,7 +118,7 @@ jobs:
             echo "## Dependency audit"
             echo ""
             if [ "${{ steps.audit.outcome }}" = "failure" ]; then
-              echo "> Known advisories found (non-blocking)."
+              echo "> Known advisories found. This job is blocking."
               echo ""
             fi
             echo '```'
