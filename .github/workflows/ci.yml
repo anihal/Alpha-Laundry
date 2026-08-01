@@ -135,7 +135,7 @@ jobs:
   ci-required:
     name: ci-required
     if: always()
-    needs: [lint, unit, integration, coverage, security]
+    needs: [lint, tests, coverage, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all upstream jobs succeeded
@@ -145,4 +145,4 @@ jobs:
           echo '${{ toJSON(needs) }}'
           exit 1
       - name: All checks passed
-        run: echo "lint, unit, integration, coverage and security all succeeded."
+        run: echo "lint, tests, coverage and security all succeeded."
