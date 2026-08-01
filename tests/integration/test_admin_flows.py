@@ -9,6 +9,8 @@ two roles actually meet in the same database.
 import re
 from datetime import datetime
 
+import pytest
+
 from models import LaundryRequest
 
 PROTECTED_ROUTES = [("GET", "/admin/dashboard"), ("POST", "/admin/update-status/1")]
@@ -124,6 +126,132 @@ def test_updating_an_unknown_job_is_a_404(admin_client):
         admin_client.post("/admin/update-status/999999", data={"status": "completed"}).status_code
         == 404
     )
+
+
+# ---------------------------------------------------------------------------
+# Status allowlist
+#
+# A status outside {submitted, processing, completed, cancelled} used to be
+# stored verbatim. The job then matched neither dashboard query -- the
+# ``status.in_(["submitted", "processing"])`` filter nor
+# ``filter_by(status="completed")`` -- so it disappeared from both tables and
+# all four stat counters permanently, while the student's quota stayed spent.
+# ---------------------------------------------------------------------------
+
+DISALLOWED_STATUSES = ["banana", "", "COMPLETED", "deleted", "submitted ", "<script>x</script>"]
+
+
+@pytest.mark.parametrize("status", DISALLOWED_STATUSES)
+def test_a_disallowed_status_is_rejected_and_the_job_is_unchanged(
+    admin_client, make_request, db_session, status
+):
+    job = make_request(student_id="STU001", num_clothes=5, status="submitted")
+
+    resp = admin_client.post(f"/admin/update-status/{job.id}", data={"status": status})
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/admin/dashboard")
+
+    stored = db_session.get(LaundryRequest, job.id)
+    assert stored.status == "submitted"
+    assert stored.completed_date is None
+
+
+def test_an_omitted_status_field_is_rejected(admin_client, make_request, db_session):
+    """No ``status`` key at all: the route reads None, which used to be stored.
+
+    A None status renders as the literal text "None" in the student's history.
+    """
+    job = make_request(student_id="STU001", num_clothes=5, status="submitted")
+
+    resp = admin_client.post(f"/admin/update-status/{job.id}", data={})
+    assert resp.status_code == 302
+    assert db_session.get(LaundryRequest, job.id).status == "submitted"
+
+
+def test_a_rejected_status_flashes_an_error_and_leaves_the_job_on_the_board(
+    admin_client, make_student, make_request
+):
+    make_student(student_id="STU001", name="Alice")
+    job = make_request(student_id="STU001", num_clothes=5, status="submitted")
+
+    admin_client.post(f"/admin/update-status/{job.id}", data={"status": "banana"})
+
+    body = admin_client.get("/admin/dashboard").get_data(as_text=True)
+    assert "Invalid status. Choose submitted, processing, completed or cancelled." in body
+    assert "bg-red-50" in body, "the rejection flash must render in the error category"
+    assert _job_ids_in(body, "running") == [job.id], "the job must not vanish from the board"
+    assert _stats_in(body)["submitted"] == 1
+
+
+def test_the_rejection_flash_does_not_echo_the_submitted_value(admin_client, make_request):
+    job = make_request(student_id="STU001", num_clothes=5, status="submitted")
+
+    admin_client.post(f"/admin/update-status/{job.id}", data={"status": "<script>x</script>"})
+
+    body = admin_client.get("/admin/dashboard").get_data(as_text=True)
+    assert "<script>x</script>" not in body
+    assert "Invalid status." in body
+
+
+@pytest.mark.parametrize("status", ["submitted", "processing", "completed", "cancelled"])
+def test_every_allowed_status_is_accepted(admin_client, make_request, db_session, status):
+    job = make_request(student_id="STU001", num_clothes=5, status="submitted")
+
+    admin_client.post(f"/admin/update-status/{job.id}", data={"status": status})
+
+    assert db_session.get(LaundryRequest, job.id).status == status
+
+
+# ---------------------------------------------------------------------------
+# completed_date follows the status
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("reverted_to", ["submitted", "processing", "cancelled"])
+def test_reverting_a_completed_job_clears_the_completion_timestamp(
+    admin_client, make_request, db_session, reverted_to
+):
+    job = make_request(student_id="STU001", num_clothes=5, status="submitted")
+
+    admin_client.post(f"/admin/update-status/{job.id}", data={"status": "completed"})
+    assert db_session.get(LaundryRequest, job.id).completed_date is not None
+
+    admin_client.post(f"/admin/update-status/{job.id}", data={"status": reverted_to})
+
+    stored = db_session.get(LaundryRequest, job.id)
+    assert stored.status == reverted_to
+    assert stored.completed_date is None, "a reverted job must not keep a completion timestamp"
+
+
+def test_a_reverted_job_returns_to_the_running_board(admin_client, make_student, make_request):
+    make_student(student_id="STU001", name="Alice")
+    job = make_request(student_id="STU001", num_clothes=5, status="submitted")
+
+    admin_client.post(f"/admin/update-status/{job.id}", data={"status": "completed"})
+    admin_client.post(f"/admin/update-status/{job.id}", data={"status": "processing"})
+
+    body = admin_client.get("/admin/dashboard").get_data(as_text=True)
+    assert _job_ids_in(body, "running") == [job.id]
+    assert _job_ids_in(body, "completed") == []
+    assert _stats_in(body) == {
+        "submitted": 0,
+        "processing": 1,
+        "completed": 0,
+        "total_students": 1,
+    }
+
+
+def test_recompleting_a_job_keeps_the_original_completion_time(
+    admin_client, make_request, db_session
+):
+    job = make_request(student_id="STU001", num_clothes=5, status="submitted")
+
+    admin_client.post(f"/admin/update-status/{job.id}", data={"status": "completed"})
+    first = db_session.get(LaundryRequest, job.id).completed_date
+
+    admin_client.post(f"/admin/update-status/{job.id}", data={"status": "completed"})
+
+    assert db_session.get(LaundryRequest, job.id).completed_date == first
 
 
 def test_a_student_submission_travels_all_the_way_to_an_admin_completion(

@@ -277,7 +277,12 @@ def update_status(request_id):
 
     laundry_request = LaundryRequest.query.get_or_404(request_id)
 
-    requests_service.set_status(db.session, laundry_request, new_status)
+    try:
+        requests_service.set_status(db.session, laundry_request, new_status)
+    except requests_service.InvalidStatus:
+        # Deliberately does not echo the rejected value back into the page.
+        flash("Invalid status. Choose submitted, processing, completed or cancelled.", "error")
+        return redirect(url_for("admin.dashboard"))
 
     flash(f"Job #{request_id} status updated to {new_status}.", "success")
     return redirect(url_for("admin.dashboard"))
