@@ -5,7 +5,7 @@ URL endpoints and business logic
 from datetime import datetime
 from functools import wraps
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
 from models import Admin, LaundryRequest, Student, db
 
 # Create blueprints
@@ -21,26 +21,57 @@ admin = Blueprint("admin", __name__, url_prefix="/admin")
 
 
 def login_required(f):
-    """Decorator to require login"""
+    """Require a session that resolves to a real Student.
+
+    The session id is authorization-critical, so it is never trusted on its own:
+    the Student row is loaded from the database. A session with no student
+    identity redirects to the login; one that names a student who no longer
+    exists is cleared first (fail closed) so a stale cookie cannot linger. The
+    resolved Student is stashed on ``flask.g`` for the view to use, which keeps
+    the gate and the view from ever disagreeing about who is logged in.
+    """
 
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if "user_id" not in session:
+        user_id = session.get("user_id")
+        if user_id is None:
             flash("Please log in to access this page.", "warning")
             return redirect(url_for("auth.login"))
+
+        current_student = db.session.get(Student, user_id)
+        if current_student is None:
+            session.clear()
+            flash("Please log in to access this page.", "warning")
+            return redirect(url_for("auth.login"))
+
+        g.student = current_student
         return f(*args, **kwargs)
 
     return decorated_function
 
 
 def admin_required(f):
-    """Decorator to require admin login"""
+    """Require a session that resolves to a real Admin.
+
+    Same contract as :func:`login_required`: the ``admin_id`` in the session is
+    resolved against the database, a missing row clears the session, and the
+    loaded Admin is stashed on ``flask.g``.
+    """
 
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if "admin_id" not in session:
+        admin_id = session.get("admin_id")
+        if admin_id is None:
             flash("Admin access required.", "warning")
             return redirect(url_for("auth.admin_login"))
+
+        current_admin = db.session.get(Admin, admin_id)
+        if current_admin is None:
+            session.clear()
+            flash("Admin access required.", "warning")
+            return redirect(url_for("auth.admin_login"))
+
+        g.admin = current_admin
         return f(*args, **kwargs)
 
     return decorated_function
@@ -72,6 +103,11 @@ def login():
         student = Student.query.filter_by(student_id=student_id).first()
 
         if student and student.check_password(password):
+            # Start from a clean session: this prevents session fixation and
+            # makes the student/admin roles mutually exclusive (a browser can
+            # never hold both identities at once).
+            session.clear()
+            session.permanent = True
             session["user_id"] = student.id
             session["student_id"] = student.student_id
             session["user_name"] = student.name
@@ -93,6 +129,10 @@ def admin_login():
         admin = Admin.query.filter_by(username=username).first()
 
         if admin and admin.check_password(password):
+            # Clean session first: prevents fixation and guarantees the admin
+            # and student roles stay mutually exclusive.
+            session.clear()
+            session.permanent = True
             session["admin_id"] = admin.id
             session["admin_username"] = admin.username
             flash("Welcome, Admin!", "success")
@@ -120,9 +160,9 @@ def logout():
 @login_required
 def dashboard():
     """Student dashboard - view remaining quota and history"""
-    student = Student.query.filter_by(student_id=session["student_id"]).first()
+    student = g.student
     requests = (
-        LaundryRequest.query.filter_by(student_id=session["student_id"])
+        LaundryRequest.query.filter_by(student_id=student.student_id)
         .order_by(LaundryRequest.submission_date.desc())
         .all()
     )
@@ -136,7 +176,7 @@ def submit_request():
     """Submit a new laundry request"""
     num_clothes = int(request.form.get("num_clothes", 0))
 
-    student = Student.query.filter_by(student_id=session["student_id"]).first()
+    student = g.student
 
     if num_clothes <= 0:
         flash("Please enter a valid number of clothes.", "error")
