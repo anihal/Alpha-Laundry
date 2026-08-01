@@ -34,8 +34,12 @@ jobs:
       - name: Format check
         run: ruff format --check .
 
-  unit:
-    name: unit
+  # Today the suite is one flat set of tests, so this is a single job. It splits
+  # into separate `unit` and `integration` jobs once the service-layer refactor
+  # lands and the suite carries those markers. `ci-required` is the only
+  # protected check, so that change will not require editing the ruleset.
+  tests:
+    name: tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -49,27 +53,12 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r laundry_app/requirements.txt pytest pytest-cov
-      - name: Run unit tests
-        run: pytest -m unit --no-cov -q
-
-  integration:
-    name: integration
-    needs: unit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_DEFAULT }}
-          cache: pip
-      - name: Install dependencies
-        run: pip install -r laundry_app/requirements.txt pytest pytest-cov
-      - name: Run integration tests
-        run: pytest -m integration --no-cov -q
+      - name: Run test suite
+        run: pytest --no-cov -q
 
   coverage:
     name: coverage
-    needs: [unit, integration]
+    needs: [tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

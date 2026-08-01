@@ -19,6 +19,12 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
+# The student and admin blueprints each define a route handler named
+# `dashboard` in this module. Renaming either changes its `url_for` endpoint
+# and breaks the templates, so this is deferred to the CR that splits
+# routes.py into per-blueprint modules.
+"laundry_app/routes.py" = ["F811"]
+
 # Tests deliberately assert on current (sometimes buggy) behavior and use
 # fixture names that shadow outer scopes.
 "tests/**" = ["B011", "RUF018"]
