@@ -3,10 +3,43 @@ Alpha Laundry - Main Application Entry Point
 A modern, modular Flask application for laundry management
 """
 
-from config import Config
+import secrets
+from datetime import timedelta
+
+from config import INSECURE_SECRET_KEYS, Config
 from flask import Flask
 from models import Admin, Student, db
 from routes import admin, auth, main, student
+
+# How long a signed-in session stays valid before the cookie expires.
+SESSION_LIFETIME = timedelta(hours=12)
+
+
+def resolve_secret_key(secret_key, debug):
+    """Return a usable session-signing key or fail closed.
+
+    Flask signs session cookies with this key, so a guessable value makes every
+    session forgeable. Rules:
+
+    * A real value from the environment is used as-is.
+    * When it is missing, blank, or a known placeholder we refuse to run with a
+      guessable key. In DEBUG we mint a random *ephemeral* key so local dev and
+      the test suite still work (sessions simply do not survive a restart).
+    * Otherwise -- a production start with no SECRET_KEY -- we raise, so the
+      deployment fails loudly instead of silently accepting forged cookies.
+    """
+    key = (secret_key or "").strip()
+    if key and key not in INSECURE_SECRET_KEYS:
+        return key
+    if debug:
+        return secrets.token_hex(32)
+    raise RuntimeError(
+        "SECRET_KEY is unset or left at an insecure placeholder. Flask signs "
+        "session cookies with it, so refusing to start: set a strong SECRET_KEY "
+        "in the environment. Generate one with "
+        '`python -c "import secrets; print(secrets.token_hex(32))"`. '
+        "For local development set DEBUG=true to allow an ephemeral key."
+    )
 
 
 def create_app():
@@ -16,7 +49,16 @@ def create_app():
     # Load configuration
     app.config["SQLALCHEMY_DATABASE_URI"] = Config.DATABASE_URL
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    app.config["SECRET_KEY"] = Config.SECRET_KEY
+    app.config["SECRET_KEY"] = resolve_secret_key(Config.SECRET_KEY, Config.DEBUG)
+
+    # Harden the session cookie.
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    # Secure cookies are only sent over HTTPS. That is required in production but
+    # would drop the cookie on local plain-HTTP dev (breaking login), so it is
+    # tied to DEBUG: on in production, off for local development.
+    app.config["SESSION_COOKIE_SECURE"] = not Config.DEBUG
+    app.config["PERMANENT_SESSION_LIFETIME"] = SESSION_LIFETIME
 
     # Initialize extensions
     db.init_app(app)

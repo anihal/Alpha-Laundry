@@ -338,24 +338,22 @@ class TestLoginRequired:
         assert resp.status_code == 302
         assert resp.headers["Location"].endswith("/login")
 
-    def test_only_user_id_is_checked(self, app, student_user):
-        """login_required looks at "user_id" alone, but dashboard() reads
-        session["student_id"]."""
+    def test_user_id_alone_resolves_the_student(self, app, student_user):
+        """login_required loads the Student by its primary key, so a session
+        carrying only ``user_id`` (no ``student_id``) still resolves correctly
+        instead of blowing up when the view needs the student."""
         client = app.test_client()
         with client.session_transaction() as sess:
             sess["user_id"] = student_user.id  # deliberately no student_id
-        # BUG: routes.py:25 gates on "user_id" while routes.py:114 dereferences
-        # session["student_id"] with a bare subscript. A session carrying only
-        # user_id passes the gate and then raises KeyError -> HTTP 500. Correct
-        # behaviour: have the decorator load the user (or use .get() with a
-        # graceful redirect) so the two never disagree.
-        with pytest.raises(KeyError):
-            client.get("/student/dashboard")
+        resp = client.get("/student/dashboard")
+        # The decorator resolves the student from the DB and stashes it on
+        # flask.g; the view reads g.student rather than session["student_id"],
+        # so the two can never disagree and no KeyError is raised.
+        assert resp.status_code == 200
+        assert "Your Dashboard" in resp.get_data(as_text=True)
 
-    def test_session_is_not_validated_against_the_database(self, app):
-        """A session naming a student who no longer exists is still accepted."""
-        import re
-
+    def test_session_naming_a_missing_student_is_rejected(self, app):
+        """A session naming a student who no longer exists is rejected, not served."""
         client = app.test_client()
         with client.session_transaction() as sess:
             sess["user_id"] = 999
@@ -363,22 +361,15 @@ class TestLoginRequired:
             sess["user_name"] = "Ghost"
 
         resp = client.get("/student/dashboard")
-        body = resp.get_data(as_text=True)
 
-        # BUG: routes.py:21-29 never checks that the session's user still
-        # exists, and routes.py:114 lets `student` be None without a guard. The
-        # page still returns HTTP 200; Jinja's default Undefined swallows
-        # `student.remaining_quota` and renders it as an empty string, so the
-        # user gets a silently broken dashboard (blank quota, a max="" on the
-        # submit input, and no "quota exhausted" notice) instead of being told
-        # to log in again. Correct behaviour: the decorator should load the
-        # user, and on a miss clear the session and redirect to auth.login.
-        assert resp.status_code == 200
-        assert "Your Dashboard" in body
-        quota_cell = re.search(r'Remaining Quota</p>\s*<p class="[^"]*">([^<]*)</p>', body)
-        assert quota_cell is not None
-        assert quota_cell.group(1).strip() == "", "expected a blank quota, not a real value"
-        assert "Your quota is exhausted" not in body
+        # The decorator loads the user and, on a miss, clears the session and
+        # redirects to the login rather than rendering a silently broken page.
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith("/login")
+        with client.session_transaction() as sess:
+            assert "user_id" not in sess
+            assert "student_id" not in sess
+            assert "user_name" not in sess
 
 
 class TestAdminRequired:
@@ -400,17 +391,20 @@ class TestAdminRequired:
         assert resp.status_code == 302
         assert resp.headers["Location"].endswith("/admin/login")
 
-    def test_admin_id_alone_is_enough(self, app):
-        """admin_required does not verify the admin row exists."""
+    def test_session_naming_a_missing_admin_is_rejected(self, app):
+        """admin_required resolves the admin row and rejects a missing one."""
         client = app.test_client()
         with client.session_transaction() as sess:
             sess["admin_id"] = 4242  # no such admin
-        # BUG: routes.py:36 only checks for the presence of the key, so a
-        # session referencing a deleted admin retains full admin access to
-        # every job in the system. Correct behaviour: load the Admin row and
-        # reject the session when it is missing.
+        # A session referencing a deleted/nonexistent admin must not retain
+        # admin access: the decorator loads the Admin row, and on a miss clears
+        # the session and redirects to the admin login.
         resp = client.get("/admin/dashboard")
-        assert resp.status_code == 200
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith("/admin/login")
+        with client.session_transaction() as sess:
+            assert "admin_id" not in sess
+            assert "admin_username" not in sess
 
     def test_decorators_preserve_the_wrapped_function_name(self, app):
         """functools.wraps keeps __name__, which is what Flask uses as the

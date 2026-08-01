@@ -59,14 +59,13 @@ class TestDefaults:
     def test_database_url_default(self, reload_config):
         assert reload_config().DATABASE_URL == "sqlite:///laundry.db"
 
-    def test_secret_key_default(self, reload_config):
-        # BUG: config.py:18 falls back to the hardcoded literal
-        # "change-me-in-production". A deployment that forgets to set SECRET_KEY
-        # silently runs with a publicly known session-signing key, which lets
-        # anyone forge a session cookie (including an admin one). Correct
-        # behaviour: raise at startup when SECRET_KEY is unset outside DEBUG, or
-        # generate a random per-process key.
-        assert reload_config().SECRET_KEY == "change-me-in-production"
+    def test_secret_key_has_no_insecure_default(self, reload_config):
+        # config.py no longer injects a guessable fallback: an unset SECRET_KEY
+        # yields None (not the old "change-me-in-production" literal). The
+        # fail-closed decision then lives in app.resolve_secret_key, which
+        # raises at startup outside DEBUG. This is what stops a deployment that
+        # forgets SECRET_KEY from silently signing cookies with a public key.
+        assert reload_config().SECRET_KEY is None
 
     def test_debug_default_is_false(self, reload_config):
         assert reload_config().DEBUG is False
@@ -74,7 +73,7 @@ class TestDefaults:
     def test_all_three_defaults_together(self, reload_config):
         cfg = reload_config()
         assert cfg.DATABASE_URL == "sqlite:///laundry.db"
-        assert cfg.SECRET_KEY == "change-me-in-production"
+        assert cfg.SECRET_KEY is None
         assert cfg.DEBUG is False
 
 
@@ -94,12 +93,11 @@ class TestEnvironmentOverride:
 
     def test_empty_env_var_is_taken_literally(self, reload_config):
         """An empty string is a *set* variable, so os.getenv returns ""."""
-        # BUG: config.py:15-18 uses os.getenv(key, default), which only falls
-        # back when the variable is absent -- not when it is set but empty.
-        # `SECRET_KEY=` in a .env file therefore yields an empty signing key
-        # (Flask then raises "The session is unavailable because no secret key
-        # was set" at request time) and `DATABASE_URL=` yields an unusable URI.
-        # Correct behaviour: treat an empty value as unset.
+        # config.py reads the raw value, so an empty `SECRET_KEY=` still surfaces
+        # as "" here -- but app.resolve_secret_key now treats "" as insecure and
+        # fails closed at startup (see tests/test_app.py::TestResolveSecretKey),
+        # so an empty signing key can no longer reach Flask. `DATABASE_URL=`
+        # still yields an unusable URI; validating it is a separate concern.
         cfg = reload_config(SECRET_KEY="", DATABASE_URL="")
         assert cfg.SECRET_KEY == ""
         assert cfg.DATABASE_URL == ""
