@@ -1,7 +1,7 @@
 """Tests for app.py -- the create_app() factory and init_db() seeding."""
 
 import pytest
-from app import create_app, init_db
+from app import SESSION_LIFETIME, create_app, init_db, resolve_secret_key
 from config import Config
 from models import Admin, LaundryRequest, Student, db
 
@@ -18,6 +18,7 @@ class TestCreateApp:
 
     def test_database_uri_comes_from_config(self, monkeypatch):
         monkeypatch.setattr(Config, "DATABASE_URL", "sqlite:///from-config.db")
+        monkeypatch.setattr(Config, "SECRET_KEY", "a-real-secret-key")
         application = create_app()
         assert application.config["SQLALCHEMY_DATABASE_URI"] == "sqlite:///from-config.db"
 
@@ -69,16 +70,101 @@ class TestCreateApp:
     def test_debug_is_not_forced_on(self, monkeypatch):
         """create_app() must not enable debug mode; only __main__ passes it to run()."""
         monkeypatch.setattr(Config, "DATABASE_URL", "sqlite:///:memory:")
+        monkeypatch.setattr(Config, "SECRET_KEY", "a-real-secret-key")
         application = create_app()
         assert application.debug is False
 
     def test_two_apps_are_independent(self, monkeypatch):
         monkeypatch.setattr(Config, "DATABASE_URL", "sqlite:///:memory:")
+        monkeypatch.setattr(Config, "SECRET_KEY", "a-real-secret-key")
         a = create_app()
         b = create_app()
         assert a is not b
         a.config["SECRET_KEY"] = "changed-on-a"
         assert b.config["SECRET_KEY"] != "changed-on-a"
+
+
+# ---------------------------------------------------------------------------
+# SECRET_KEY -- fail closed
+# ---------------------------------------------------------------------------
+
+
+class TestResolveSecretKey:
+    def test_a_real_env_key_is_used_as_is(self):
+        assert resolve_secret_key("a-strong-secret", debug=False) == "a-strong-secret"
+
+    def test_surrounding_whitespace_is_trimmed(self):
+        assert resolve_secret_key("  spaced-secret  ", debug=False) == "spaced-secret"
+
+    @pytest.mark.parametrize(
+        "insecure",
+        [None, "", "   ", "change-me-in-production", "your-secret-key"],
+    )
+    def test_missing_or_placeholder_key_raises_outside_debug(self, insecure):
+        """A production start without a real key must fail loudly."""
+        with pytest.raises(RuntimeError, match="SECRET_KEY"):
+            resolve_secret_key(insecure, debug=False)
+
+    @pytest.mark.parametrize("insecure", [None, "", "change-me-in-production"])
+    def test_debug_mints_an_ephemeral_key_instead_of_raising(self, insecure):
+        key = resolve_secret_key(insecure, debug=True)
+        assert key
+        assert key not in ("change-me-in-production", "")
+        # 32 random bytes hex-encoded.
+        assert len(key) == 64
+
+    def test_ephemeral_keys_are_random_per_call(self):
+        assert resolve_secret_key(None, debug=True) != resolve_secret_key(None, debug=True)
+
+    def test_missing_key_makes_create_app_fail_closed(self, monkeypatch):
+        monkeypatch.setattr(Config, "DATABASE_URL", "sqlite:///:memory:")
+        monkeypatch.setattr(Config, "SECRET_KEY", None)
+        monkeypatch.setattr(Config, "DEBUG", False)
+        with pytest.raises(RuntimeError, match="SECRET_KEY"):
+            create_app()
+
+    def test_insecure_default_makes_create_app_fail_closed(self, monkeypatch):
+        monkeypatch.setattr(Config, "DATABASE_URL", "sqlite:///:memory:")
+        monkeypatch.setattr(Config, "SECRET_KEY", "change-me-in-production")
+        monkeypatch.setattr(Config, "DEBUG", False)
+        with pytest.raises(RuntimeError, match="SECRET_KEY"):
+            create_app()
+
+    def test_debug_lets_create_app_start_without_a_key(self, monkeypatch):
+        monkeypatch.setattr(Config, "DATABASE_URL", "sqlite:///:memory:")
+        monkeypatch.setattr(Config, "SECRET_KEY", None)
+        monkeypatch.setattr(Config, "DEBUG", True)
+        application = create_app()
+        assert application.config["SECRET_KEY"]
+
+
+# ---------------------------------------------------------------------------
+# Session cookie hardening
+# ---------------------------------------------------------------------------
+
+
+class TestSessionCookieHardening:
+    def test_cookie_is_httponly_and_lax(self, app):
+        assert app.config["SESSION_COOKIE_HTTPONLY"] is True
+        assert app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
+
+    def test_lifetime_is_finite(self, app):
+        assert app.config["PERMANENT_SESSION_LIFETIME"] == SESSION_LIFETIME
+
+    def test_secure_is_on_in_production(self, monkeypatch):
+        monkeypatch.setattr(Config, "DATABASE_URL", "sqlite:///:memory:")
+        monkeypatch.setattr(Config, "SECRET_KEY", "a-real-secret-key")
+        monkeypatch.setattr(Config, "DEBUG", False)
+        application = create_app()
+        assert application.config["SESSION_COOKIE_SECURE"] is True
+
+    def test_secure_is_off_in_debug(self, monkeypatch):
+        """Local HTTP dev cannot use Secure cookies or login breaks."""
+        monkeypatch.setattr(Config, "DATABASE_URL", "sqlite:///:memory:")
+        monkeypatch.setattr(Config, "SECRET_KEY", "a-real-secret-key")
+        monkeypatch.setattr(Config, "DEBUG", True)
+        application = create_app()
+        assert application.config["SESSION_COOKIE_SECURE"] is False
 
 
 # ---------------------------------------------------------------------------

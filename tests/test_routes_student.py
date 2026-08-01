@@ -270,8 +270,8 @@ class TestSubmitRequestNonNumericInput:
         assert LaundryRequest.query.one().num_clothes == 3
         assert Student.query.filter_by(student_id="STU001").one().remaining_quota == 27
 
-    def test_deleted_student_with_live_session_raises(self, app, make_student, db_session):
-        """submit_request never checks that the student lookup succeeded."""
+    def test_deleted_student_with_live_session_is_redirected(self, app, make_student, db_session):
+        """A live session whose student was deleted is cleared, not crashed."""
         student = make_student(
             student_id="STU001", name="John Doe", password="password123", remaining_quota=30
         )
@@ -279,12 +279,16 @@ class TestSubmitRequestNonNumericInput:
         client.post("/login", data={"student_id": "STU001", "password": "password123"})
         db_session.delete(student)
         db_session.commit()
-        # BUG: routes.py:128 assigns `student = Student.query...first()` which
-        # can be None, then routes.py:134 reads `student.remaining_quota`
-        # unguarded -> AttributeError / HTTP 500. Correct behaviour: if the
-        # student is missing, clear the session and redirect to the login page.
-        with pytest.raises(AttributeError):
-            client.post("/student/submit", data={"num_clothes": "5"})
+        # login_required resolves the student from the DB; on a miss it clears
+        # the session and redirects to the login instead of dereferencing a
+        # None student (the old AttributeError / HTTP 500).
+        resp = client.post("/student/submit", data={"num_clothes": "5"})
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith("/login")
+        assert LaundryRequest.query.count() == 0
+        with client.session_transaction() as sess:
+            assert "user_id" not in sess
+            assert "student_id" not in sess
 
 
 # ---------------------------------------------------------------------------
