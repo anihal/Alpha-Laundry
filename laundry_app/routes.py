@@ -9,6 +9,7 @@ redirect. The rules themselves live in ``laundry_app/services/``.
 from functools import wraps
 
 from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
+from sqlalchemy import func
 
 from models import Admin, LaundryRequest, Student, db
 from services import quota as quota_service
@@ -231,6 +232,36 @@ def dashboard():
     return render_template(
         "admin.html", running_jobs=running_jobs, completed_jobs=completed_jobs, stats=stats
     )
+
+
+@admin.route("/students")
+@admin_required
+def students():
+    """Directory of enrolled students, with their laundry activity."""
+    # One grouped query for the per-student counts instead of two queries per
+    # row. `outerjoin` keeps students who have never submitted anything.
+    rows = (
+        db.session.query(
+            Student,
+            func.count(LaundryRequest.id).label("total_requests"),
+            func.coalesce(func.sum(LaundryRequest.num_clothes), 0).label("total_clothes"),
+        )
+        .outerjoin(LaundryRequest, LaundryRequest.student_id == Student.student_id)
+        .group_by(Student.id)
+        .order_by(Student.name)
+        .all()
+    )
+
+    students_list = [
+        {
+            "student": student,
+            "total_requests": total_requests,
+            "total_clothes": total_clothes,
+        }
+        for student, total_requests, total_clothes in rows
+    ]
+
+    return render_template("students.html", students=students_list)
 
 
 @admin.route("/update-status/<int:request_id>", methods=["POST"])
