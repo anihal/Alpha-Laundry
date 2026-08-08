@@ -64,9 +64,10 @@ class TestStudentPassword:
         # BUG: models.py:28-29 Student.check_password passes the argument
         # straight to werkzeug's check_password_hash, which calls
         # ``password.encode()``. A None password therefore raises
-        # AttributeError instead of returning False. This is reachable from the
-        # login route (see test_routes_auth.py) whenever the form field is
-        # absent. Correct behaviour: return False for a None/non-string password.
+        # AttributeError instead of returning False. No longer reachable from
+        # the login route -- routes.login now defaults a missing password field
+        # to "" -- but the model itself is still sharp to any other caller.
+        # Correct behaviour: return False for a None/non-string password.
         with pytest.raises(AttributeError):
             student.check_password(None)
 
@@ -97,7 +98,9 @@ class TestAdminPassword:
     def test_check_password_with_none_raises(self, make_admin):
         admin = make_admin(password="admin123")
         # BUG: models.py:62-63 -- identical flaw to Student.check_password.
-        # Reachable from /admin/login when the password field is missing.
+        # /admin/login no longer reaches it (the route defaults a missing
+        # password field to ""), but the model still raises for any caller
+        # that hands it a None.
         with pytest.raises(AttributeError):
             admin.check_password(None)
 

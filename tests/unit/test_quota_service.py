@@ -36,9 +36,14 @@ class TestParseQuantity:
     def test_returns_a_real_int(self):
         assert isinstance(quota.parse_quantity("5"), int)
 
-    def test_leading_plus_and_surrounding_whitespace_are_accepted(self):
-        """int() tolerates " +5 ", so this one really does parse."""
-        assert quota.parse_quantity(" +5 ") == 5
+    @pytest.mark.parametrize("raw", [" +5 ", "5 ", " 5", "\t5\n", "+5"])
+    def test_a_sign_and_surrounding_whitespace_are_accepted(self, raw):
+        """Trimming is deliberate: it is what the old ``int()`` did too."""
+        assert quota.parse_quantity(raw) == 5
+
+    @pytest.mark.parametrize("raw,expected", [("007", 7), ("-0", 0), ("00", 0)])
+    def test_ascii_digits_with_leading_zeros_still_parse(self, raw, expected):
+        assert quota.parse_quantity(raw) == expected
 
     def test_the_routes_missing_field_default_parses_to_zero(self):
         """The route passes ``request.form.get("num_clothes", 0)``.
@@ -48,39 +53,83 @@ class TestParseQuantity:
         """
         assert quota.parse_quantity(0) == 0
 
-    @pytest.mark.parametrize("raw", ["abc", "", "1.5", "5e3", "0x10", "  ", "5,000", "12abc", "\t"])
-    def test_non_integer_input_raises_valueerror(self, raw):
-        # BUG: services/quota.py parse_quantity is a bare `int()` with no
-        # try/except -- lifted unchanged from routes.py. Every one of these
-        # values escapes as an unhandled ValueError, i.e. HTTP 500 in
-        # production. Note that "" is what a browser sends when the number
-        # input is submitted blank, so this is trivially reachable, not just an
-        # attacker path. Correct behaviour: reject unparseable input as an
-        # InvalidQuantity so the route can flash "Please enter a valid number
-        # of clothes." exactly like the <= 0 case.
-        with pytest.raises(ValueError):
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "abc",
+            "",  # what a browser posts for a blank number input
+            "1.5",
+            "5e3",
+            "0x10",
+            "  ",
+            "5,000",
+            "12abc",
+            "\t",
+            "1_0",  # int("1_0") is 10; the underscore separator is not form input
+            "1 2",
+            "+-5",
+            "--5",
+            "5%",
+            "٣٤",
+        ],
+    )
+    def test_non_integer_input_is_rejected_as_a_domain_error(self, raw):
+        """Unparseable input is a domain error, not an escaping builtin.
+
+        A bare ``int()`` raised ``ValueError`` here, which nothing caught: every
+        one of these values was an unhandled exception, i.e. HTTP 500. They now
+        raise InvalidQuantity so the route can flash "Please enter a valid
+        number of clothes." exactly as it does for the ``<= 0`` case.
+        """
+        with pytest.raises(InvalidQuantity):
             quota.parse_quantity(raw)
 
-    def test_none_raises_typeerror(self):
-        # BUG: same bare int(). A None gets a TypeError rather than a domain
-        # error, so the caller cannot distinguish "no input" from "bad input"
-        # without catching builtins.
-        with pytest.raises(TypeError):
+    @pytest.mark.parametrize("raw", ["abc", "", "1.5", "  "])
+    def test_a_parse_failure_is_not_a_builtin_error(self, raw):
+        """Explicitly: callers never have to catch ValueError or TypeError."""
+        with pytest.raises(ServiceError):
+            quota.parse_quantity(raw)
+
+    def test_the_parse_error_carries_the_offending_value(self):
+        with pytest.raises(InvalidQuantity) as excinfo:
+            quota.parse_quantity("abc")
+        assert excinfo.value.num_clothes == "abc"
+
+    def test_none_is_rejected_as_a_domain_error(self):
+        """A None used to surface as TypeError, indistinguishable from a crash."""
+        with pytest.raises(InvalidQuantity):
             quota.parse_quantity(None)
 
-    def test_non_ascii_digits_are_silently_accepted(self):
-        # BUG: int() parses any Unicode decimal digit, so the form value "٣"
-        # (Arabic-Indic three) is quietly interpreted as 3 and a real request
-        # is created. Whatever the desired policy is, the app never decides it
-        # -- this is an accident of using bare int() on untrusted input.
-        # Correct behaviour: validate against an explicit ASCII-digit pattern
-        # before converting.
-        assert quota.parse_quantity("٣") == 3
+    # Arabic-Indic, Bengali, Thai, and (escaped, so the linter's
+    # ambiguous-character rule does not fire on the very thing under test)
+    # FULLWIDTH DIGIT THREE. int() accepts every one of them.
+    @pytest.mark.parametrize("raw", ["٣", "١٢", "৩", "๓", "\uff13"])
+    def test_non_ascii_digits_are_rejected(self, raw):
+        """The ASCII-digit policy is chosen, not inherited from ``int()``.
 
-    def test_a_float_argument_is_truncated_not_rejected(self):
-        # BUG: int(1.9) is 1. A caller that hands over a float loses the
-        # fraction silently instead of being told the value is invalid.
-        assert quota.parse_quantity(1.9) == 1
+        ``int("٣")`` (Arabic-Indic three) is 3, so the value used to create a
+        real 3-item request. The form field is a plain HTML number input, so
+        ASCII is the whole of the legitimate domain.
+        """
+        with pytest.raises(InvalidQuantity):
+            quota.parse_quantity(raw)
+
+    @pytest.mark.parametrize("raw", [1.9, 5.0, -2.5])
+    def test_a_float_argument_is_rejected_not_truncated(self, raw):
+        """``int(1.9)`` silently dropped the fraction; now it is refused."""
+        with pytest.raises(InvalidQuantity):
+            quota.parse_quantity(raw)
+
+    @pytest.mark.parametrize("raw", [True, False])
+    def test_a_bool_is_not_a_quantity(self, raw):
+        """``bool`` is an ``int`` subclass by history, not a number of clothes."""
+        with pytest.raises(InvalidQuantity):
+            quota.parse_quantity(raw)
+
+    @pytest.mark.parametrize("raw", [[5], {"n": 5}, (5,), object()])
+    def test_other_types_are_rejected(self, raw):
+        with pytest.raises(InvalidQuantity):
+            quota.parse_quantity(raw)
 
 
 # ---------------------------------------------------------------------------

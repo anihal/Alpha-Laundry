@@ -10,5 +10,6 @@ translating a domain error into an HTTP response is the route layer's job.
 """
 
 from services.quota import InvalidQuantity, QuotaExceeded, ServiceError
+from services.requests import InvalidStatus
 
-__all__ = ["InvalidQuantity", "QuotaExceeded", "ServiceError"]
+__all__ = ["InvalidQuantity", "InvalidStatus", "QuotaExceeded", "ServiceError"]

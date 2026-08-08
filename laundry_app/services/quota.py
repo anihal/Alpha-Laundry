@@ -1,7 +1,8 @@
 """Quota arithmetic and the validation that guards it.
 
-Extracted verbatim from the body of ``routes.submit_request``. The behaviour --
-including its known defects -- is unchanged; only the location moved.
+Extracted from the body of ``routes.submit_request``. ``parse_quantity`` is the
+one part that no longer behaves as it did inline: it validates its input instead
+of handing it to a bare ``int()``.
 """
 
 
@@ -10,7 +11,12 @@ class ServiceError(Exception):
 
 
 class InvalidQuantity(ServiceError):
-    """The requested number of clothes is not a usable quantity (``<= 0``)."""
+    """The submitted value is not a usable number of clothes.
+
+    Covers both halves of "usable": input that is not an ASCII integer at all
+    (raised by :func:`parse_quantity`) and an integer that is not positive
+    (raised by :func:`check`).
+    """
 
     def __init__(self, num_clothes):
         super().__init__(f"invalid quantity: {num_clothes!r}")
@@ -29,12 +35,34 @@ class QuotaExceeded(ServiceError):
 def parse_quantity(raw):
     """Coerce a raw form value into a number of clothes.
 
-    A bare ``int()`` with no ``try``/``except``, exactly as it was inline in the
-    route. Non-numeric input therefore raises ``ValueError`` (and ``None``
-    raises ``TypeError``) rather than being rejected politely; callers see the
-    same exceptions they saw before this function existed.
+    Raises :class:`InvalidQuantity` -- never ``ValueError`` or ``TypeError`` --
+    for anything that is not an ASCII integer, so the route has exactly one kind
+    of failure to translate into a flash message. This is the guard that keeps
+    ``""`` (what a browser posts for a blank number field), ``"abc"``, ``"1.5"``
+    and friends from escaping as an unhandled exception, i.e. an HTTP 500.
+
+    An ``int`` passes through untouched, because the route's own default for a
+    missing field is the int ``0``. ``bool`` does not: it is an ``int`` subclass
+    by accident of history, not a quantity. Surrounding whitespace is stripped,
+    which keeps ``" +5 "`` working the way it always has.
+
+    The accepted shape -- an optional sign then ASCII digits, nothing else -- is
+    chosen here rather than inherited from ``int()``, which also accepts every
+    Unicode decimal digit (``int("٣")`` is 3, and used to create a real 3-item
+    request) and underscore separators (``int("1_0")`` is 10).
     """
-    return int(raw)
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        return raw
+
+    if not isinstance(raw, str):
+        raise InvalidQuantity(raw)
+
+    text = raw.strip()
+    digits = text[1:] if text[:1] in ("+", "-") else text
+    if not digits.isascii() or not digits.isdigit():
+        raise InvalidQuantity(raw)
+
+    return int(text)
 
 
 def check(student, num_clothes):
