@@ -13,6 +13,7 @@ import pytest
 from models import LaundryRequest, Student
 from services import requests as request_service
 from services.quota import InvalidQuantity, QuotaExceeded, ServiceError
+from services.requests import InvalidStatus
 
 # ---------------------------------------------------------------------------
 # submit -- happy path
@@ -260,75 +261,169 @@ class TestSetStatus:
 
 
 # ---------------------------------------------------------------------------
+# set_status -- the allowlist
+# ---------------------------------------------------------------------------
+
+
+class TestSetStatusAllowlist:
+    @pytest.mark.parametrize(
+        "garbage",
+        [
+            "banana",
+            "COMPLETED",  # the comparison is case-sensitive, so this is not "completed"
+            "Submitted",
+            "deleted",
+            "submitted ",  # a trailing space is a different string to every query
+            " submitted",
+            "<script>x</script>",
+            "0",
+            "completed'; DROP TABLE laundry_requests; --",
+            "submitted,processing",
+        ],
+    )
+    def test_a_status_outside_the_allowlist_is_rejected(self, db_session, job, garbage):
+        """The documented set is enforced, not merely documented.
+
+        Any string fits the String(20) column, and a job holding one matches
+        neither admin dashboard query -- the ``status.in_(["submitted",
+        "processing"])`` filter nor ``status="completed"`` -- so it used to
+        vanish from both tables and all four stat counters while the student's
+        quota stayed spent.
+        """
+        with pytest.raises(InvalidStatus):
+            request_service.set_status(db_session, job, garbage)
+
+    def test_a_none_status_is_rejected(self, db_session, job):
+        """The route passes ``request.form.get("status")``: None when absent.
+
+        Storing it rendered as the literal text "None" in the student's history.
+        """
+        with pytest.raises(InvalidStatus):
+            request_service.set_status(db_session, job, None)
+
+    def test_an_empty_status_is_rejected(self, db_session, job):
+        with pytest.raises(InvalidStatus):
+            request_service.set_status(db_session, job, "")
+
+    @pytest.mark.parametrize("garbage", ["banana", "", None, "COMPLETED"])
+    def test_a_rejected_status_leaves_the_row_untouched(self, db_session, job, garbage):
+        with pytest.raises(InvalidStatus):
+            request_service.set_status(db_session, job, garbage)
+        assert job.status == "submitted"
+        assert job.completed_date is None
+
+    @pytest.mark.parametrize("garbage", ["banana", "", None])
+    def test_a_rejected_status_is_not_committed(self, db_session, job, garbage):
+        job_id = job.id
+        with pytest.raises(InvalidStatus):
+            request_service.set_status(db_session, job, garbage)
+        db_session.rollback()
+        db_session.expunge_all()
+        assert db_session.get(LaundryRequest, job_id).status == "submitted"
+
+    def test_a_rejected_status_does_not_clear_an_existing_completed_date(self, db_session, job):
+        """Rejection is inert: it must not half-apply the transition."""
+        request_service.set_status(db_session, job, "completed")
+        stamped = job.completed_date
+        with pytest.raises(InvalidStatus):
+            request_service.set_status(db_session, job, "banana")
+        assert job.status == "completed"
+        assert job.completed_date == stamped
+
+    def test_the_error_carries_the_offending_status(self, db_session, job):
+        with pytest.raises(InvalidStatus) as excinfo:
+            request_service.set_status(db_session, job, "banana")
+        assert excinfo.value.status == "banana"
+
+    def test_invalid_status_is_a_service_error(self):
+        assert issubclass(InvalidStatus, ServiceError)
+
+    def test_the_package_re_exports_invalid_status(self):
+        import services
+
+        assert services.InvalidStatus is InvalidStatus
+
+    def test_the_allowlist_is_exactly_the_documented_set(self):
+        assert set(request_service.ALLOWED_STATUSES) == {
+            "submitted",
+            "processing",
+            "completed",
+            "cancelled",
+        }
+
+    def test_the_completed_constant_is_in_the_allowlist(self):
+        assert request_service.COMPLETED in request_service.ALLOWED_STATUSES
+
+
+# ---------------------------------------------------------------------------
+# set_status -- completed_date tracks the status
+# ---------------------------------------------------------------------------
+
+
+class TestSetStatusCompletedDate:
+    @pytest.mark.parametrize("new_status", ["submitted", "processing", "cancelled"])
+    def test_moving_out_of_completed_clears_the_completed_date(self, db_session, job, new_status):
+        """A reverted job must not keep claiming a completion timestamp.
+
+        ``set_status`` used only ever to *set* ``completed_date``; a job sent
+        back to "processing" read as both in-progress and finished.
+        """
+        request_service.set_status(db_session, job, "completed")
+        assert job.completed_date is not None
+
+        request_service.set_status(db_session, job, new_status)
+        assert job.status == new_status
+        assert job.completed_date is None
+
+    def test_the_clearing_is_committed(self, db_session, job):
+        job_id = job.id
+        request_service.set_status(db_session, job, "completed")
+        request_service.set_status(db_session, job, "processing")
+        db_session.expunge_all()
+        assert db_session.get(LaundryRequest, job_id).completed_date is None
+
+    def test_a_job_that_was_never_completed_keeps_a_null_completed_date(self, db_session, job):
+        request_service.set_status(db_session, job, "processing")
+        assert job.completed_date is None
+
+    def test_recompleting_preserves_the_original_completed_date(self, db_session, job):
+        """Stamped on the transition *into* completed, so a re-submit is a no-op."""
+        first = datetime(2026, 1, 1, 0, 0, 0)
+        second = datetime(2026, 6, 1, 0, 0, 0)
+        request_service.set_status(db_session, job, "completed", now=first)
+        request_service.set_status(db_session, job, "completed", now=second)
+        assert job.completed_date == first
+
+    def test_completing_again_after_a_revert_stamps_the_new_time(self, db_session, job):
+        """The revert cleared it, so the second completion is a real transition."""
+        first = datetime(2026, 1, 1, 0, 0, 0)
+        second = datetime(2026, 6, 1, 0, 0, 0)
+        request_service.set_status(db_session, job, "completed", now=first)
+        request_service.set_status(db_session, job, "processing")
+        request_service.set_status(db_session, job, "completed", now=second)
+        assert job.completed_date == second
+
+    def test_a_preloaded_completed_date_is_cleared_by_a_revert(
+        self, db_session, make_student, make_request
+    ):
+        """Rows that already carry a stale stamp are repaired by the next move."""
+        make_student(student_id="STU002")
+        stale = make_request(
+            student_id="STU002",
+            num_clothes=2,
+            status="completed",
+            completed_date=datetime(2020, 1, 1),
+        )
+        request_service.set_status(db_session, stale, "cancelled")
+        assert stale.completed_date is None
+
+
+# ---------------------------------------------------------------------------
 # set_status -- documented bugs
 # ---------------------------------------------------------------------------
 
 
 class TestSetStatusDocumentedBugs:
-    @pytest.mark.parametrize(
-        "garbage",
-        ["banana", "COMPLETED", "deleted", "submitted ", "<script>x</script>", "0"],
-    )
-    def test_arbitrary_status_strings_are_persisted(self, db_session, job, garbage):
-        # BUG: set_status assigns the caller's string to the column with no
-        # allowlist check, exactly as routes.py did inline. The status field is
-        # documented in models.py as one of
-        # {submitted, processing, completed, cancelled}, yet any string fits in
-        # the String(20) column and is committed. A job set to "banana"
-        # vanishes from both admin dashboard queries (it matches neither the
-        # running_jobs IN-clause nor status="completed") and becomes
-        # unreachable through the UI. Correct behaviour: validate against the
-        # allowed set and reject anything else.
-        request_service.set_status(db_session, job, garbage)
-        assert job.status == garbage[:20]
-
-    def test_uppercase_completed_does_not_stamp_the_completed_date(self, db_session, job):
-        # BUG: the comparison is `new_status == "completed"` exactly, so
-        # "COMPLETED" stores the status but never stamps completed_date. The
-        # row then reads as finished to a human and unfinished to every query.
-        request_service.set_status(db_session, job, "COMPLETED")
-        assert job.status == "COMPLETED"
-        assert job.completed_date is None
-
-    def test_a_none_status_is_persisted(self, db_session, job):
-        # BUG: the route passes ``request.form.get("status")``, which is None
-        # when the field is absent, and set_status writes that None straight to
-        # a column models.py clearly intends to always hold a value. The job is
-        # silently erased from every dashboard view. Correct behaviour: reject
-        # a missing status instead of storing it.
-        request_service.set_status(db_session, job, None)
-        assert job.status is None
-
-    def test_an_empty_status_is_persisted(self, db_session, job):
-        # BUG: same missing validation; an empty string is stored as the
-        # status.
-        request_service.set_status(db_session, job, "")
-        assert job.status == ""
-
-    def test_moving_out_of_completed_leaves_a_stale_completed_date(self, db_session, job):
-        request_service.set_status(db_session, job, "completed")
-        stamped = job.completed_date
-        assert stamped is not None
-
-        request_service.set_status(db_session, job, "processing")
-        # BUG: set_status only ever *sets* completed_date; nothing clears it.
-        # Reverting a job to "processing" leaves it claiming a completion
-        # timestamp, so the row reads as both in-progress and finished. Correct
-        # behaviour: clear completed_date on any transition away from
-        # "completed".
-        assert job.status == "processing"
-        assert job.completed_date == stamped
-
-    def test_recompleting_overwrites_the_completed_date(self, db_session, job):
-        first = datetime(2026, 1, 1, 0, 0, 0)
-        second = datetime(2026, 6, 1, 0, 0, 0)
-        request_service.set_status(db_session, job, "completed", now=first)
-        request_service.set_status(db_session, job, "completed", now=second)
-        # BUG: set_status re-stamps unconditionally, so the original completion
-        # time is lost when an admin re-submits the same status. Correct
-        # behaviour: stamp only on the transition *into* "completed".
-        assert job.completed_date == second
-
     def test_cancelling_does_not_refund_the_quota(self, db_session, student):
         created = request_service.submit(db_session, student, 10)
         assert student.remaining_quota == 20
