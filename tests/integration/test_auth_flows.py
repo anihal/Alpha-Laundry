@@ -72,6 +72,76 @@ def test_a_bad_admin_password_rerenders_the_form_with_an_error(client, admin_use
         assert "admin_id" not in sess
 
 
+# ---------------------------------------------------------------------------
+# A missing password field
+#
+# ``check_password(None)`` raises inside werkzeug (it calls ``.encode()`` on the
+# value), so a POST carrying a *valid* student_id with no password field at all
+# used to be an HTTP 500 while an unknown id rendered a normal 200. That
+# 500-vs-200 split enumerated valid student IDs and admin usernames with zero
+# password guesses. A missing password must be indistinguishable from a wrong
+# one -- same status, same flash, no session.
+# ---------------------------------------------------------------------------
+
+
+def test_a_student_login_without_a_password_field_matches_a_wrong_password(client, student_user):
+    missing = client.post("/login", data={"student_id": "STU001"})
+    wrong = client.post("/login", data={"student_id": "STU001", "password": "nope"})
+
+    assert missing.status_code == wrong.status_code == 200
+    assert "Invalid student ID or password." in missing.get_data(as_text=True)
+    with client.session_transaction() as sess:
+        assert "user_id" not in sess
+
+
+def test_a_student_login_without_a_password_field_is_not_an_id_oracle(client, student_user):
+    """A valid id and an unknown id must be indistinguishable from outside."""
+    known = client.post("/login", data={"student_id": "STU001"})
+    unknown = client.post("/login", data={"student_id": "NO-SUCH-STUDENT"})
+
+    assert known.status_code == unknown.status_code == 200
+    assert known.get_data(as_text=True) == unknown.get_data(as_text=True)
+
+
+def test_an_admin_login_without_a_password_field_matches_a_wrong_password(client, admin_user):
+    missing = client.post("/admin/login", data={"username": "admin"})
+    wrong = client.post("/admin/login", data={"username": "admin", "password": "nope"})
+
+    assert missing.status_code == wrong.status_code == 200
+    assert "Invalid username or password." in missing.get_data(as_text=True)
+    with client.session_transaction() as sess:
+        assert "admin_id" not in sess
+
+
+def test_an_admin_login_without_a_password_field_is_not_a_username_oracle(client, admin_user):
+    known = client.post("/admin/login", data={"username": "admin"})
+    unknown = client.post("/admin/login", data={"username": "no-such-admin"})
+
+    assert known.status_code == unknown.status_code == 200
+    assert known.get_data(as_text=True) == unknown.get_data(as_text=True)
+
+
+def test_an_empty_password_is_rejected_for_both_roles(client, student_user, admin_user):
+    student = client.post("/login", data={"student_id": "STU001", "password": ""})
+    assert student.status_code == 200
+    assert "Invalid student ID or password." in student.get_data(as_text=True)
+
+    admin = client.post("/admin/login", data={"username": "admin", "password": ""})
+    assert admin.status_code == 200
+    assert "Invalid username or password." in admin.get_data(as_text=True)
+
+    with client.session_transaction() as sess:
+        assert "user_id" not in sess
+        assert "admin_id" not in sess
+
+
+def test_a_login_post_with_no_fields_at_all_is_rejected(client, student_user, admin_user):
+    assert client.post("/login", data={}).status_code == 200
+    assert client.post("/admin/login", data={}).status_code == 200
+    with client.session_transaction() as sess:
+        assert dict(sess) == {}
+
+
 def test_logout_clears_the_session_and_locks_the_dashboard_again(student_client):
     resp = student_client.get("/logout", follow_redirects=True)
 

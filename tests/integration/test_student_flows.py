@@ -8,6 +8,8 @@ the right status code, redirect, flash category and rendered page.
 
 import re
 
+import pytest
+
 from models import LaundryRequest, Student
 
 PROTECTED_ROUTES = [("GET", "/student/dashboard"), ("POST", "/student/submit")]
@@ -96,3 +98,69 @@ def test_submitting_a_non_positive_quantity_is_rejected(student_client, db_sessi
     assert "bg-red-50" in body
     assert db_session.query(LaundryRequest).count() == 0
     assert db_session.query(Student).filter_by(student_id="STU001").one().remaining_quota == 30
+
+
+# ---------------------------------------------------------------------------
+# Unparseable quantities
+#
+# Every value below used to escape ``parse_quantity``'s bare ``int()`` as an
+# unhandled ValueError -- an HTTP 500 on a route any logged-in student can
+# reach, with "" being what the browser posts for a blank number field. The
+# ``min``/``max`` attributes on the input in dashboard.html are client-side
+# only, so none of this needs a crafted request to reproduce.
+# ---------------------------------------------------------------------------
+
+UNPARSEABLE = [
+    "",  # blank number field
+    "abc",
+    "1.5",
+    "5e3",
+    "0x10",
+    "  ",
+    "5,000",
+    "12abc",
+    "٣",  # Arabic-Indic 3: int() used to accept it and create a real request
+    "-",
+    "1_0",
+]
+
+
+@pytest.mark.parametrize("raw", UNPARSEABLE)
+def test_an_unparseable_quantity_redirects_instead_of_erroring(student_client, raw):
+    resp = student_client.post("/student/submit", data={"num_clothes": raw})
+    assert resp.status_code == 302, f"{raw!r} must not raise; got {resp.status_code}"
+    assert resp.headers["Location"].endswith("/student/dashboard")
+
+
+@pytest.mark.parametrize("raw", UNPARSEABLE)
+def test_an_unparseable_quantity_flashes_the_validation_error(student_client, raw):
+    body = student_client.post(
+        "/student/submit", data={"num_clothes": raw}, follow_redirects=True
+    ).get_data(as_text=True)
+    assert "Please enter a valid number of clothes." in body
+    assert "bg-red-50" in body
+
+
+@pytest.mark.parametrize("raw", UNPARSEABLE)
+def test_an_unparseable_quantity_creates_no_row_and_spends_no_quota(
+    student_client, db_session, raw
+):
+    student_client.post("/student/submit", data={"num_clothes": raw})
+    assert db_session.query(LaundryRequest).count() == 0
+    assert db_session.query(Student).filter_by(student_id="STU001").one().remaining_quota == 30
+
+
+def test_an_omitted_quantity_field_is_rejected(student_client, db_session):
+    """No ``num_clothes`` at all: the route's own default (int 0) is invalid."""
+    resp = student_client.post("/student/submit", data={}, follow_redirects=True)
+    assert "Please enter a valid number of clothes." in resp.get_data(as_text=True)
+    assert db_session.query(LaundryRequest).count() == 0
+    assert db_session.query(Student).filter_by(student_id="STU001").one().remaining_quota == 30
+
+
+def test_a_rejected_quantity_does_not_disturb_an_earlier_request(student_client, db_session):
+    student_client.post("/student/submit", data={"num_clothes": "5"})
+    student_client.post("/student/submit", data={"num_clothes": "abc"})
+
+    assert db_session.query(LaundryRequest).count() == 1
+    assert db_session.query(Student).filter_by(student_id="STU001").one().remaining_quota == 25
