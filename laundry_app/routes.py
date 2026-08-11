@@ -291,6 +291,15 @@ def update_status(request_id):
         # Deliberately does not echo the rejected value back into the page.
         flash("Invalid status. Choose submitted, processing, completed or cancelled.", "error")
         return redirect(url_for("admin.dashboard"))
+    except quota_service.QuotaExceeded as exc:
+        # Reopening a cancelled job spends its clothes again, and the student
+        # may no longer have room for them.
+        flash(
+            f"Cannot reopen job #{request_id}: the student has only "
+            f"{exc.remaining} clothes left in their quota.",
+            "error",
+        )
+        return redirect(url_for("admin.dashboard"))
 
     flash(f"Job #{request_id} status updated to {new_status}.", "success")
     return redirect(url_for("admin.dashboard"))

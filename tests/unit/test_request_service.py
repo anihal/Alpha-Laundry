@@ -419,29 +419,31 @@ class TestSetStatusCompletedDate:
 
 
 # ---------------------------------------------------------------------------
-# set_status -- documented bugs
+# set_status -- quota side effects
 # ---------------------------------------------------------------------------
 
 
-class TestSetStatusDocumentedBugs:
-    def test_cancelling_does_not_refund_the_quota(self, db_session, student):
+class TestSetStatusQuotaEffects:
+    def test_cancelling_refunds_the_quota(self, db_session, student):
         created = request_service.submit(db_session, student, 10)
         assert student.remaining_quota == 20
 
         request_service.set_status(db_session, created, "cancelled")
 
-        # BUG: cancelling a job never returns the deducted clothes to the
-        # student's quota -- submit() took them and nothing gives them back.
-        # The student permanently loses 10 from their allowance for a job that
-        # was never done. Correct behaviour: refund num_clothes to
-        # remaining_quota on the transition to "cancelled".
         assert created.status == "cancelled"
-        assert student.remaining_quota == 20
+        assert student.remaining_quota == 30
 
-    def test_completing_does_not_refund_either(self, db_session, student):
-        """For contrast: completion is the case where *not* refunding is right."""
+    def test_completing_does_not_refund(self, db_session, student):
+        """Completion is the case where *not* refunding is right: it was washed."""
         created = request_service.submit(db_session, student, 10)
         request_service.set_status(db_session, created, "completed")
+        assert student.remaining_quota == 20
+
+    def test_moving_between_open_statuses_does_not_move_the_quota(self, db_session, student):
+        created = request_service.submit(db_session, student, 10)
+        request_service.set_status(db_session, created, "processing")
+        assert student.remaining_quota == 20
+        request_service.set_status(db_session, created, "submitted")
         assert student.remaining_quota == 20
 
 
