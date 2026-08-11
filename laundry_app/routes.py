@@ -105,7 +105,14 @@ def login():
     """Student login"""
     if request.method == "POST":
         student_id = request.form.get("student_id")
-        password = request.form.get("password")
+        # An absent password field arrives as None, and check_password(None)
+        # raises inside werkzeug (it calls .encode() on the value) -> HTTP 500.
+        # Because an *unknown* student_id short-circuits before that call and
+        # renders a normal 200, the crash was a user-enumeration oracle: post a
+        # student_id with no password field at all and the status code alone
+        # says whether the id exists. Defaulting to "" keeps a missing password
+        # on exactly the same path as a wrong one.
+        password = request.form.get("password", "")
 
         student = Student.query.filter_by(student_id=student_id).first()
 
@@ -131,7 +138,8 @@ def admin_login():
     """Admin login"""
     if request.method == "POST":
         username = request.form.get("username")
-        password = request.form.get("password")
+        # Same enumeration oracle as the student login, over admin usernames.
+        password = request.form.get("password", "")
 
         admin = Admin.query.filter_by(username=username).first()
 
@@ -181,11 +189,16 @@ def dashboard():
 @login_required
 def submit_request():
     """Submit a new laundry request"""
-    num_clothes = quota_service.parse_quantity(request.form.get("num_clothes", 0))
-
     student = g.student
 
     try:
+        # Parsing lives inside the try because a value the browser will happily
+        # post -- "" for a blank number field -- is an InvalidQuantity, and it
+        # deserves the same flash as a zero or a negative rather than an
+        # unhandled exception. The ``min``/``max`` attributes on the input in
+        # dashboard.html are a convenience, not a control; every check that
+        # matters happens here.
+        num_clothes = quota_service.parse_quantity(request.form.get("num_clothes", 0))
         requests_service.submit(db.session, student, num_clothes)
     except quota_service.InvalidQuantity:
         flash("Please enter a valid number of clothes.", "error")
@@ -272,7 +285,12 @@ def update_status(request_id):
 
     laundry_request = LaundryRequest.query.get_or_404(request_id)
 
-    requests_service.set_status(db.session, laundry_request, new_status)
+    try:
+        requests_service.set_status(db.session, laundry_request, new_status)
+    except requests_service.InvalidStatus:
+        # Deliberately does not echo the rejected value back into the page.
+        flash("Invalid status. Choose submitted, processing, completed or cancelled.", "error")
+        return redirect(url_for("admin.dashboard"))
 
     flash(f"Job #{request_id} status updated to {new_status}.", "success")
     return redirect(url_for("admin.dashboard"))
